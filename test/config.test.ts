@@ -162,4 +162,10 @@ describe("config file", () => {
 		expect(saveConfig(config)).toBeUndefined();
 		expect(loadConfig().config).toEqual(config);
 	});
+
+	test("a loaded config does not alias the exported defaults", () => {
+		const loaded = loadConfig();
+		loaded.config.allow.push("bash");
+		expect(DEFAULT_CONFIG.allow).not.toContain("bash");
+	});
 });

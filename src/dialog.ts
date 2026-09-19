@@ -1,10 +1,10 @@
 /**
  * The permission dialog.
  *
- * Three decisions, numbered so they survive an IME candidate buffer and so the
- * whole answer is one keystroke. Tab arms an inline note on the highlighted
- * row, which turns "yes" into "yes, and..." and "deny" into "deny, because..."
- * without spending three more rows on it.
+ * Three decisions, numbered so they survive an IME candidate buffer: `1`/`2`/`3`
+ * move the highlight and `enter` confirms. Tab arms an inline note on the
+ * highlighted row, which turns "yes" into "yes, and..." and "deny" into "deny,
+ * because..." without spending three more rows on it.
  *
  * "always yes" opens a depth picker first: the levels come from the call
  * itself, so you approve `git`, `git status`, or the exact command as typed.
@@ -48,39 +48,29 @@ export const BASE_OPTIONS: DecisionOption[] = [
 
 /**
  * Flat list for UI contexts that cannot host the component (RPC). There is no
- * Tab there, so the note modifier gets its own row.
+ * Tab there, so the note modifier gets its own row, which doubles the list.
  */
-export const FALLBACK_OPTIONS: (DecisionOption & { note: boolean })[] = [
-	{ key: "1", decision: "allow", always: false, note: false, label: "yes", tone: "success" },
-	{
-		key: "2",
-		decision: "allow",
-		always: false,
-		note: true,
-		label: "yes, with a note",
-		tone: "success",
-	},
-	{ key: "3", decision: "allow", always: true, note: false, label: "always yes", tone: "warning" },
-	{
-		key: "4",
-		decision: "allow",
-		always: true,
-		note: true,
-		label: "always yes, with a note",
-		tone: "warning",
-	},
-	{ key: "5", decision: "deny", always: false, note: false, label: "deny", tone: "error" },
-	{
-		key: "6",
-		decision: "deny",
-		always: false,
-		note: true,
-		label: "deny, with a reason",
-		tone: "error",
-	},
-];
+export const FALLBACK_OPTIONS: (DecisionOption & { note: boolean })[] = BASE_OPTIONS.flatMap(
+	(option, index) => [
+		{ ...option, key: String(index * 2 + 1), note: false },
+		{
+			...option,
+			key: String(index * 2 + 2),
+			note: true,
+			label: `${option.label}, ${option.decision === "allow" ? "with a note" : "with a reason"}`,
+		},
+	],
+);
 
 type Phase = "menu" | "levels";
+
+/** Top border chrome: `╭─ ` before the title, ` ╮` after it. */
+const TITLE_PREFIX = "\u256d\u2500 ";
+const TITLE_SUFFIX = " \u256e";
+const TITLE_CHROME_WIDTH = visibleWidth(TITLE_PREFIX) + visibleWidth(TITLE_SUFFIX);
+
+/** Rows of the call summary shown before it is elided. */
+const SUMMARY_ROWS = 3;
 
 interface AskDialogOptions {
 	theme: Theme;
@@ -126,9 +116,7 @@ export class AskDialog implements Component, Focusable {
 		this.complete = options.complete;
 
 		this.noteInput.onSubmit = () => {
-			const index = this.noteIndex;
-			if (index === null) return;
-			this.choose(index);
+			if (this.noteIndex !== null) this.choose(this.noteIndex);
 		};
 		this.noteInput.onEscape = () => {
 			this.noteIndex = null;
@@ -153,20 +141,15 @@ export class AskDialog implements Component, Focusable {
 		lines.push("");
 
 		if (this.phase === "levels") {
-			lines.push(this.theme.fg("muted", "always yes for..."));
-			this.target.levels.forEach((level, index) => {
-				const active = index === this.levelIndex;
-				const marker = active ? this.theme.fg("accent", "\u276f ") : "  ";
-				lines.push(marker + this.theme.fg(active ? "accent" : "text", level));
-			});
-			if (this.pendingNote) lines.push(this.theme.fg("muted", `note: ${this.pendingNote}`));
-			lines.push("");
-			lines.push(this.hint("\u2191\u2193 choose depth   enter confirm   esc back"));
+			lines.push(...this.levelLines());
 		} else {
-			BASE_OPTIONS.forEach((_option, index) => lines.push(this.renderOption(index, inner)));
+			for (const [index, option] of BASE_OPTIONS.entries()) {
+				lines.push(this.renderOption(option, index, inner));
+			}
 			lines.push("");
 			lines.push(
-				this.hint(
+				this.theme.fg(
+					"dim",
 					this.noteIndex === null
 						? "\u2191\u2193 or 1-3 pick   enter confirm   tab note   esc deny"
 						: "enter confirm   esc back",
@@ -174,16 +157,13 @@ export class AskDialog implements Component, Focusable {
 			);
 		}
 
-		return this.frame(lines, width, `permission \u00b7 ${this.toolName}`);
+		return this.frame(lines, width, inner, `permission \u00b7 ${this.toolName}`);
 	}
 
 	private dispatch(data: string): void {
 		if (this.phase === "menu" && this.noteIndex !== null) {
-			if (matchesKey(data, Key.tab)) {
-				this.noteIndex = null;
-				return;
-			}
-			this.noteInput.handleInput(data);
+			if (matchesKey(data, Key.tab)) this.noteIndex = null;
+			else this.noteInput.handleInput(data);
 			return;
 		}
 
@@ -254,6 +234,7 @@ export class AskDialog implements Component, Focusable {
 	private confirmLevel(): void {
 		const level = this.target.levels[this.levelIndex];
 		if (!this.pending || level === undefined) return;
+
 		this.complete({
 			decision: this.pending.decision,
 			note: this.pendingNote,
@@ -266,46 +247,53 @@ export class AskDialog implements Component, Focusable {
 		return this.noteInput.getValue().trim() || undefined;
 	}
 
-	private renderOption(index: number, inner: number): string {
-		const option = BASE_OPTIONS[index];
-		if (!option) return "";
+	private levelLines(): string[] {
+		const lines = [this.theme.fg("muted", "always yes for...")];
+
+		for (const [index, level] of this.target.levels.entries()) {
+			const active = index === this.levelIndex;
+			const marker = active ? this.theme.fg("accent", "\u276f ") : "  ";
+			lines.push(marker + this.theme.fg(active ? "accent" : "text", level));
+		}
+
+		if (this.pendingNote) lines.push(this.theme.fg("muted", `note: ${this.pendingNote}`));
+		lines.push("");
+		lines.push(this.theme.fg("dim", "\u2191\u2193 choose depth   enter confirm   esc back"));
+		return lines;
+	}
+
+	private renderOption(option: DecisionOption, index: number, inner: number): string {
 		const active = index === this.selected;
 		const marker = active ? this.theme.fg("accent", "\u276f ") : "  ";
 		const key = this.theme.fg(active ? "accent" : "dim", option.key);
 		const prefix = `${marker}${key}  `;
 
-		if (this.noteIndex === index) {
-			const prefixWidth = 5;
-			const room = Math.max(1, inner - prefixWidth);
-			const label = truncateToWidth(`${option.label}, `, room);
-			const inputRoom = Math.max(1, inner - prefixWidth - visibleWidth(label));
-			const line = `${prefix}${this.theme.fg(option.tone, label)}${this.noteInput.render(inputRoom)[0] ?? ""}`;
-			return truncateToWidth(line, inner);
+		if (this.noteIndex !== index) {
+			return `${prefix}${this.theme.fg(active ? option.tone : "text", option.label)}`;
 		}
 
-		return `${prefix}${this.theme.fg(active ? option.tone : "text", option.label)}`;
+		const room = Math.max(1, inner - visibleWidth(prefix));
+		const label = truncateToWidth(`${option.label}, `, room);
+		const inputRoom = Math.max(1, room - visibleWidth(label));
+		const line = `${prefix}${this.theme.fg(option.tone, label)}${this.noteInput.render(inputRoom)[0] ?? ""}`;
+		return truncateToWidth(line, inner);
 	}
 
 	private summaryLines(inner: number): string[] {
 		const wrapped = wrapTextWithAnsi(this.target.summary || "(no input)", inner);
-		const shown = wrapped.slice(0, 3);
+		const shown = wrapped.slice(0, SUMMARY_ROWS);
+		const elideLast = wrapped.length > shown.length;
 
-		if (wrapped.length > shown.length && shown.length > 0) {
-			const last = shown.length - 1;
-			const previous = shown[last];
-			if (previous !== undefined)
-				shown[last] = `${truncateToWidth(previous, Math.max(0, inner - 3))}...`;
-		}
-
-		return shown.map((line) => this.theme.fg("muted", line));
+		return shown.map((line, index) => {
+			const text =
+				elideLast && index === shown.length - 1
+					? `${truncateToWidth(line, Math.max(0, inner - 3))}...`
+					: line;
+			return this.theme.fg("muted", text);
+		});
 	}
 
-	private hint(text: string): string {
-		return this.theme.fg("dim", text);
-	}
-
-	private frame(lines: string[], width: number, title: string): string[] {
-		const inner = Math.max(1, width - 4);
+	private frame(lines: string[], width: number, inner: number, title: string): string[] {
 		const out: string[] = [this.topBorder(width, title)];
 
 		for (const line of lines) {
@@ -321,12 +309,15 @@ export class AskDialog implements Component, Focusable {
 	}
 
 	private topBorder(width: number, title: string): string {
-		const prefix = "\u256d\u2500 ";
-		const suffix = " \u256e";
-		const room = Math.max(0, width - visibleWidth(prefix) - visibleWidth(suffix));
+		const room = Math.max(0, width - TITLE_CHROME_WIDTH);
 		const label = this.theme.fg("accent", truncateToWidth(title, Math.max(0, room - 3), "..."));
 		const dashes = Math.max(0, room - visibleWidth(label));
-		return `${this.theme.fg("border", prefix)}${label}${this.theme.fg("border", `${"\u2500".repeat(dashes)}${suffix}`)}`;
+
+		return (
+			this.theme.fg("border", TITLE_PREFIX) +
+			label +
+			this.theme.fg("border", `${"\u2500".repeat(dashes)}${TITLE_SUFFIX}`)
+		);
 	}
 }
 
@@ -338,30 +329,24 @@ export async function askViaSelector(
 ): Promise<AskDecision> {
 	const labels = FALLBACK_OPTIONS.map((option) => `${option.key}. ${option.label}`);
 	const choice = await ctx.ui.select(`Allow ${toolName}?\n${target.summary}`, labels);
-	if (!choice) return { decision: "deny" };
-
-	const option = FALLBACK_OPTIONS.find(
-		(candidate) => `${candidate.key}. ${candidate.label}` === choice,
-	);
+	const option = choice ? FALLBACK_OPTIONS[labels.indexOf(choice)] : undefined;
 	if (!option) return { decision: "deny" };
 
 	let remember: string | undefined;
 	if (option.always) {
-		if (target.levels.length > 1) {
+		if (target.levels.length === 1) {
+			remember = target.levels[0];
+		} else {
 			const level = await ctx.ui.select("Always yes for...", target.levels);
 			if (!level) return { decision: "deny" };
 			remember = level;
-		} else {
-			remember = target.levels[0];
 		}
 	}
 
 	let note: string | undefined;
 	if (option.note) {
-		const answer = await ctx.ui.input(
-			option.decision === "allow" ? "Note to the agent:" : "Reason for the agent:",
-		);
-		note = answer?.trim() || undefined;
+		const prompt = option.decision === "allow" ? "Note to the agent:" : "Reason for the agent:";
+		note = (await ctx.ui.input(prompt))?.trim() || undefined;
 	}
 
 	return { decision: option.decision, note, remember };

@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, visibleWidth } from "@earendil-works/pi-tui";
 
-import { type AskDecision, AskDialog } from "../src/dialog.ts";
+import { type AskDecision, AskDialog, FALLBACK_OPTIONS } from "../src/dialog.ts";
 import { deriveTarget } from "../src/targets.ts";
 
 /** Colour-free stand-in; only fg/bold are ever called by the dialog. */
@@ -23,7 +23,7 @@ function open(toolName = "bash", input: unknown = { command: "git status --short
 	const dialog = new AskDialog({
 		theme,
 		toolName,
-		target: deriveTarget(toolName, input, "/tmp"),
+		target: deriveTarget(toolName, input),
 		requestRender: () => {
 			renders++;
 		},
@@ -201,6 +201,30 @@ describe("tab followups", () => {
 	});
 });
 
+describe("fallback options", () => {
+	test("derives one row per base option, plain then note", () => {
+		expect(FALLBACK_OPTIONS.map((option) => option.key)).toEqual(["1", "2", "3", "4", "5", "6"]);
+		expect(FALLBACK_OPTIONS.map((option) => option.label)).toEqual([
+			"yes",
+			"yes, with a note",
+			"always yes",
+			"always yes, with a note",
+			"deny",
+			"deny, with a reason",
+		]);
+		expect(FALLBACK_OPTIONS.map((option) => [option.decision, option.always, option.note])).toEqual(
+			[
+				["allow", false, false],
+				["allow", false, true],
+				["allow", true, false],
+				["allow", true, true],
+				["deny", false, false],
+				["deny", false, true],
+			],
+		);
+	});
+});
+
 describe("rendering", () => {
 	test("never emits a line wider than the terminal", () => {
 		for (const width of [8, 12, 20, 40, 80, 200]) {
@@ -220,6 +244,14 @@ describe("rendering", () => {
 		press(dialog, KEYS.tab);
 		type(dialog, "hello");
 		expect(dialog.render(80).join("\n")).toContain("yes, hello");
+	});
+
+	test("elides a long summary but keeps the start of it", () => {
+		const long = Array.from({ length: 30 }, (_value, index) => `segment${index}`).join(" ");
+		const { dialog } = open("bash", { command: long });
+		const rendered = dialog.render(60).join("\n");
+		expect(rendered).toContain("segment0");
+		expect(rendered).toContain("...");
 	});
 
 	test("shows the command it is asking about", () => {

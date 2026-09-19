@@ -19,17 +19,18 @@ export interface CallTarget {
 
 const FILE_TOOLS = new Set(["read", "write", "edit", "grep", "find", "ls"]);
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
+const INPUT_SUMMARY_MAX = 400;
 
-export function deriveTarget(toolName: string, input: unknown, _cwd: string): CallTarget {
+export function deriveTarget(toolName: string, input: unknown): CallTarget {
 	const record = (input ?? {}) as Record<string, unknown>;
 
 	if (toolName === "bash" || toolName === "powershell") {
-		const command = typeof record.command === "string" ? record.command : "";
+		const command = asString(record.command) ?? "";
 		return { summary: command.trim() || "(empty command)", levels: commandLevels(command) };
 	}
 
 	if (FILE_TOOLS.has(toolName)) {
-		const path = typeof record.path === "string" ? record.path : "";
+		const path = asString(record.path) ?? "";
 		return { summary: path.trim() || "(no path)", levels: pathLevels(path) };
 	}
 
@@ -45,22 +46,14 @@ export function deriveTarget(toolName: string, input: unknown, _cwd: string): Ca
  */
 export function commandLevels(command: string): string[] {
 	const tokens = tokenize(command).filter((token) => !ASSIGNMENT.test(token));
-	const exact = command.trim();
-
-	if (tokens.length === 0) return [exact || "(empty command)"];
-
-	const levels: string[] = [];
-	const push = (value: string) => {
-		const trimmed = value.trim();
-		if (trimmed && !levels.includes(trimmed)) levels.push(trimmed);
-	};
-
 	const head = tokens[0];
+
+	const exact = command.trim();
 	if (head === undefined) return [exact || "(empty command)"];
 
-	push(head);
-	if (tokens.length > 1) push(tokens.slice(0, 2).join(" "));
-	push(exact);
+	const levels = [head];
+	if (tokens.length > 1) levels.push(tokens.slice(0, 2).join(" "));
+	if (!levels.includes(exact)) levels.push(exact);
 
 	return levels;
 }
@@ -72,7 +65,7 @@ export function pathLevels(path: string): string[] {
 
 	const display = shortenHome(exact);
 	const directory = dirname(display);
-	if (!directory || directory === "." || directory === display) return [display];
+	if (directory === "." || directory === display) return [display];
 
 	return [directory, display];
 }
@@ -89,9 +82,10 @@ export function shortenHome(path: string): string {
 export function summarizeInput(input: Record<string, unknown>): string {
 	const keys = Object.keys(input);
 	if (keys.length === 0) return "(no input)";
+
 	try {
 		const json = JSON.stringify(input);
-		return json.length > 400 ? `${json.slice(0, 397)}...` : json;
+		return json.length > INPUT_SUMMARY_MAX ? `${json.slice(0, INPUT_SUMMARY_MAX - 3)}...` : json;
 	} catch {
 		return `{ ${keys.join(", ")} }`;
 	}
@@ -141,8 +135,8 @@ export function tokenize(command: string): string[] {
 }
 
 function mcpTarget(record: Record<string, unknown>): CallTarget {
-	const server = typeof record.server === "string" ? record.server : undefined;
-	const tool = typeof record.tool === "string" ? record.tool : undefined;
+	const server = asString(record.server);
+	const tool = asString(record.tool);
 
 	if (server && tool) {
 		return { summary: `${server}:${tool}`, levels: [server, `${server}:${tool}`] };
@@ -150,4 +144,8 @@ function mcpTarget(record: Record<string, unknown>): CallTarget {
 	if (tool) return { summary: tool, levels: [tool] };
 	if (server) return { summary: server, levels: [server] };
 	return { summary: summarizeInput(record), levels: ["mcp"] };
+}
+
+function asString(value: unknown): string | undefined {
+	return typeof value === "string" && value !== "" ? value : undefined;
 }

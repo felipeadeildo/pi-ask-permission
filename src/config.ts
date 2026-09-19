@@ -40,6 +40,14 @@ export interface LoadedConfig {
 	warnings: string[];
 }
 
+export function isHeadlessMode(value: unknown): value is HeadlessMode {
+	return value === "allow" || value === "deny";
+}
+
+export function isFollowupWire(value: unknown): value is FollowupWire {
+	return value === "result" || value === "message";
+}
+
 export function agentDir(): string {
 	const fromEnv = process.env.PI_CODING_AGENT_DIR;
 	if (fromEnv) return expandTilde(fromEnv);
@@ -54,39 +62,32 @@ export function configPath(): string {
 export function loadConfig(): LoadedConfig {
 	const path = configPath();
 	const warnings: string[] = [];
+	let config = defaults();
 
 	if (!existsSync(path)) {
 		try {
-			mkdirSync(dirname(path), { recursive: true });
-			writeFileSync(path, `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`, "utf8");
+			writeConfigFile(path, config);
 		} catch (error) {
 			warnings.push(`could not create ${path}: ${describe(error)}`);
 		}
-		return { config: { ...DEFAULT_CONFIG }, path, warnings };
+		return { config, path, warnings };
 	}
 
-	let raw: unknown;
 	try {
-		raw = JSON.parse(readFileSync(path, "utf8"));
+		const raw: unknown = JSON.parse(readFileSync(path, "utf8"));
+		if (isRecord(raw)) config = coerceConfig(raw, warnings);
+		else warnings.push(`${path} must contain a JSON object; using defaults`);
 	} catch (error) {
 		warnings.push(`could not parse ${path}: ${describe(error)}; using defaults`);
-		return { config: { ...DEFAULT_CONFIG }, path, warnings };
 	}
 
-	if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-		warnings.push(`${path} must contain a JSON object; using defaults`);
-		return { config: { ...DEFAULT_CONFIG }, path, warnings };
-	}
-
-	return { config: coerceConfig(raw as Record<string, unknown>, warnings), path, warnings };
+	return { config, path, warnings };
 }
 
-/** Rewrites the file from the resolved config. Other keys in the file are dropped. */
+/** Rewrites the file from the resolved config. Returns an error message on failure. */
 export function saveConfig(config: AskConfig): string | undefined {
-	const path = configPath();
 	try {
-		mkdirSync(dirname(path), { recursive: true });
-		writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+		writeConfigFile(configPath(), config);
 		return undefined;
 	} catch (error) {
 		return describe(error);
@@ -94,7 +95,7 @@ export function saveConfig(config: AskConfig): string | undefined {
 }
 
 export function coerceConfig(raw: Record<string, unknown>, warnings: string[]): AskConfig {
-	const config: AskConfig = { ...DEFAULT_CONFIG, allow: [...DEFAULT_CONFIG.allow] };
+	const config = defaults();
 
 	if (Array.isArray(raw.allow)) {
 		const allow = raw.allow.filter(
@@ -107,12 +108,12 @@ export function coerceConfig(raw: Record<string, unknown>, warnings: string[]): 
 		warnings.push("allow: expected an array of tool names");
 	}
 
-	if (raw.headless === "allow" || raw.headless === "deny") {
+	if (isHeadlessMode(raw.headless)) {
 		config.headless = raw.headless;
-	} else if (raw.headless && typeof raw.headless === "object" && !Array.isArray(raw.headless)) {
+	} else if (isRecord(raw.headless)) {
 		const map: Record<string, HeadlessMode> = {};
-		for (const [tool, mode] of Object.entries(raw.headless as Record<string, unknown>)) {
-			if (mode === "allow" || mode === "deny") map[tool] = mode;
+		for (const [tool, mode] of Object.entries(raw.headless)) {
+			if (isHeadlessMode(mode)) map[tool] = mode;
 			else warnings.push(`headless.${tool}: expected "allow" or "deny"`);
 		}
 		config.headless = map;
@@ -120,7 +121,7 @@ export function coerceConfig(raw: Record<string, unknown>, warnings: string[]): 
 		warnings.push('headless: expected "allow", "deny", or a per-tool map');
 	}
 
-	if (raw.followup === "result" || raw.followup === "message") {
+	if (isFollowupWire(raw.followup)) {
 		config.followup = raw.followup;
 	} else if (raw.followup !== undefined) {
 		warnings.push('followup: expected "result" or "message"');
@@ -135,6 +136,7 @@ export function coerceConfig(raw: Record<string, unknown>, warnings: string[]): 
 /** `*` matches any run of characters, `?` exactly one. */
 export function matchesPattern(pattern: string, value: string): boolean {
 	if (pattern === "*") return true;
+
 	let compiled = patternCache.get(pattern);
 	if (!compiled) {
 		const escaped = pattern
@@ -153,7 +155,7 @@ export function isAllowed(config: AskConfig, toolName: string): boolean {
 
 /**
  * Specificity beats file order: an exact tool name wins over a wildcard, and a
- * wildcard over `*`. Ties are broken by the later entry. This is deliberate —
+ * wildcard over `*`. Ties are broken by the later entry. This is deliberate:
  * a `headless` map exists to carve out exceptions, and expecting the author to
  * remember rule order for that would be a trap.
  */
@@ -164,6 +166,7 @@ export function headlessMode(config: AskConfig, toolName: string): HeadlessMode 
 	let best: HeadlessMode | undefined;
 	for (const [pattern, value] of Object.entries(config.headless)) {
 		if (!matchesPattern(pattern, toolName)) continue;
+
 		const score = specificity(pattern);
 		if (score >= bestScore) {
 			bestScore = score;
@@ -173,10 +176,25 @@ export function headlessMode(config: AskConfig, toolName: string): HeadlessMode 
 	return best ?? "deny";
 }
 
+/** An exact name scores highest, then a wildcard, then `*`. */
 function specificity(pattern: string): number {
 	if (pattern === "*") return 1;
 	if (pattern.includes("*") || pattern.includes("?")) return 2;
 	return 3;
+}
+
+/** A fresh copy, so a caller can replace `allow` without touching the exported default. */
+function defaults(): AskConfig {
+	return { ...DEFAULT_CONFIG, allow: [...DEFAULT_CONFIG.allow] };
+}
+
+function writeConfigFile(path: string, config: AskConfig): void {
+	mkdirSync(dirname(path), { recursive: true });
+	writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 const patternCache = new Map<string, RegExp>();

@@ -45,6 +45,10 @@ describe("pathLevels", () => {
 		expect(pathLevels(`${process.env.HOME}/.ssh/config`)).toEqual(["~/.ssh", "~/.ssh/config"]);
 	});
 
+	test("the filesystem root is its own level", () => {
+		expect(pathLevels("/")).toEqual(["/"]);
+	});
+
 	test("a bare filename has one level", () => {
 		expect(pathLevels("id_rsa")).toEqual(["id_rsa"]);
 	});
@@ -66,29 +70,29 @@ describe("tokenize", () => {
 
 describe("deriveTarget", () => {
 	test("bash uses the command", () => {
-		expect(deriveTarget("bash", { command: "sudo rm -rf /tmp/x" }, "/tmp")).toEqual({
+		expect(deriveTarget("bash", { command: "sudo rm -rf /tmp/x" })).toEqual({
 			summary: "sudo rm -rf /tmp/x",
 			levels: ["sudo", "sudo rm", "sudo rm -rf /tmp/x"],
 		});
 	});
 
 	test("file tools use the path", () => {
-		expect(deriveTarget("write", { path: "src/a.ts" }, "/tmp").levels).toEqual(["src", "src/a.ts"]);
+		expect(deriveTarget("write", { path: "src/a.ts" }).levels).toEqual(["src", "src/a.ts"]);
 	});
 
 	test("mcp nests server then tool", () => {
-		expect(deriveTarget("mcp", { server: "github", tool: "search_code" }, "/tmp")).toEqual({
+		expect(deriveTarget("mcp", { server: "github", tool: "search_code" })).toEqual({
 			summary: "github:search_code",
 			levels: ["github", "github:search_code"],
 		});
 	});
 
 	test("an unknown tool has one level: its name", () => {
-		expect(deriveTarget("todo", { items: [1] }, "/tmp").levels).toEqual(["todo"]);
+		expect(deriveTarget("todo", { items: [1] }).levels).toEqual(["todo"]);
 	});
 
 	test("a missing input does not throw", () => {
-		expect(deriveTarget("bash", undefined, "/tmp").levels).toEqual(["(empty command)"]);
+		expect(deriveTarget("bash", undefined).levels).toEqual(["(empty command)"]);
 	});
 });
 
