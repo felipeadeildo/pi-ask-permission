@@ -1,0 +1,27 @@
+# Lefthook git hooks — https://lefthook.dev
+#
+# Hooks are installed by `bun install` (lefthook is in trustedDependencies) or
+# by running `bunx lefthook install` by hand. The config is read on every run,
+# so editing this file needs no reinstall.
+
+pre-commit:
+  # Sequential on purpose: both formatters rewrite files and re-stage them, and
+  # racing two writers over the same file is how you lose a fix.
+  parallel: false
+  commands:
+    format:
+      glob: "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,yml,yaml,md}"
+      run: bunx oxfmt --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+    lint:
+      glob: "*.{ts,tsx,js,jsx,mjs,cjs}"
+      run: bunx oxlint --fix {staged_files}
+      stage_fixed: true
+    types:
+      glob: "*.ts"
+      run: bun run check
+
+pre-push:
+  commands:
+    verify:
+      run: bun run verify

@@ -1,0 +1,11 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"tabWidth": 2,
+	"printWidth": 100,
+	"trailingComma": "all",
+	"insertFinalNewline": true,
+	"sortImports": true,
+	"sortPackageJson": true,
+	"ignorePatterns": ["node_modules/**", "bun.lock", ".git/**"]
+}

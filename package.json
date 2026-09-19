@@ -1,0 +1,60 @@
+{
+	"name": "pi-ask-permission",
+	"version": "0.1.0",
+	"description": "A permission gate for the Pi coding agent: yes / always yes / deny, each with an optional followup note.",
+	"keywords": [
+		"extension",
+		"permission",
+		"pi",
+		"pi-package"
+	],
+	"homepage": "https://github.com/felipeadeildo/pi-ask-permission#readme",
+	"bugs": "https://github.com/felipeadeildo/pi-ask-permission/issues",
+	"license": "MIT",
+	"author": {
+		"name": "Felipe Adeildo",
+		"email": "contato@felipeadeildo.com",
+		"url": "https://github.com/felipeadeildo"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/felipeadeildo/pi-ask-permission.git"
+	},
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"type": "module",
+	"scripts": {
+		"check": "tsc --noEmit",
+		"lint": "oxlint",
+		"lint:fix": "oxlint --fix",
+		"fmt": "oxfmt",
+		"fmt:check": "oxfmt --check",
+		"test": "bun test",
+		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "0.85.1",
+		"@earendil-works/pi-tui": "0.85.1",
+		"@types/bun": "latest",
+		"@types/node": "^22.10.0",
+		"lefthook": "^2.1.14",
+		"oxfmt": "^0.68.0",
+		"oxlint": "^1.83.0",
+		"typescript": "^5.7.0"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"trustedDependencies": [
+		"lefthook"
+	]
+}
