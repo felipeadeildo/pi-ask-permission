@@ -26,6 +26,9 @@
 		"LICENSE"
 	],
 	"type": "module",
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"check": "tsc --noEmit",
 		"lint": "oxlint",
