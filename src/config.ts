@@ -1,9 +1,6 @@
 /**
- * pi-ask-permission configuration.
- *
- * One JSON file, four keys. Missing keys fall back to the defaults below; a
- * malformed file is reported and the defaults are used rather than silently
- * weakening the gate.
+ * One JSON config file. Missing keys fall back to the defaults; a malformed file
+ * is reported and defaults are used rather than silently weakening the gate.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -11,18 +8,15 @@ import { dirname, join } from "node:path";
 
 import { describe, isRecord } from "./util.ts";
 
-/** What to do when there is nobody to ask. */
 export type HeadlessMode = "allow" | "deny";
 
-/** Where a note attached to an approval reaches the model. */
 export type FollowupWire = "result" | "message";
 
 export interface AskConfig {
 	/** Tool names that never prompt. `*` and `?` wildcards are supported. */
 	allow: string[];
-	/** Behavior when no UI is available, either globally or per tool. */
+	/** Behavior when no UI is available, globally or per tool. */
 	headless: HeadlessMode | Record<string, HeadlessMode>;
-	/** Delivery channel for a note attached to an approval. */
 	followup: FollowupWire;
 	/** Skip the dialog entirely and approve everything. */
 	yolo: boolean;
@@ -38,7 +32,6 @@ export const DEFAULT_CONFIG: AskConfig = {
 export interface LoadedConfig {
 	config: AskConfig;
 	path: string;
-	/** Human-readable problems found while loading. */
 	warnings: string[];
 }
 
@@ -165,10 +158,8 @@ export function isAllowed(config: AskConfig, toolName: string): boolean {
 }
 
 /**
- * Specificity beats file order: an exact tool name wins over a wildcard, and a
- * wildcard over `*`. Ties are broken by the later entry. This is deliberate:
- * a `headless` map exists to carve out exceptions, and expecting the author to
- * remember rule order for that would be a trap.
+ * Specificity beats file order: an exact name wins over a wildcard, a wildcard
+ * over `*`, and ties go to the later entry.
  */
 export function headlessMode(config: AskConfig, toolName: string): HeadlessMode {
 	if (typeof config.headless === "string") return config.headless;
@@ -187,14 +178,13 @@ export function headlessMode(config: AskConfig, toolName: string): HeadlessMode 
 	return best ?? "deny";
 }
 
-/** An exact name scores highest, then a wildcard, then `*`. */
 function specificity(pattern: string): number {
 	if (pattern === "*") return 1;
 	if (pattern.includes("*") || pattern.includes("?")) return 2;
 	return 3;
 }
 
-/** A fresh copy, so a caller can replace `allow` without touching the exported default. */
+/** A copy, so mutating `allow` never touches DEFAULT_CONFIG. */
 function defaults(): AskConfig {
 	return { ...DEFAULT_CONFIG, allow: [...DEFAULT_CONFIG.allow] };
 }

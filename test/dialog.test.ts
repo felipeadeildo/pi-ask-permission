@@ -3,8 +3,9 @@ import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, visibleWidth } from "@earendil-works/pi-tui";
 
-import { type AskDecision, AskDialog, FALLBACK_OPTIONS } from "../src/dialog.ts";
+import { AskDialog } from "../src/dialog.ts";
 import type { GrantScope } from "../src/grants.ts";
+import { type AskDecision, FALLBACK_OPTIONS } from "../src/options.ts";
 import { deriveTarget } from "../src/targets.ts";
 
 /** Colour-free stand-in; only fg/bold are ever called by the dialog. */
@@ -230,11 +231,67 @@ describe("tab followups", () => {
 		]);
 	});
 
-	test("arming a different row clears the previous draft", () => {
+	test("a different row starts a fresh note", () => {
 		const { dialog, decisions } = open();
 		press(dialog, KEYS.tab);
 		type(dialog, "first");
 		press(dialog, KEYS.tab, KEYS.down, KEYS.tab);
+		type(dialog, "second");
+		press(dialog, KEYS.enter, KEYS.enter);
+		expect(decisions).toEqual([
+			{ decision: "allow", note: "second", remember: "git status --short", scope: "session" },
+		]);
+	});
+});
+
+describe("note navigation while editing", () => {
+	test("arrows move the open note editor between rows", () => {
+		const { dialog } = open();
+		dialog.focused = true;
+		press(dialog, KEYS.tab);
+		type(dialog, "on yes");
+		press(dialog, KEYS.down);
+
+		const lines = dialog.render(80);
+		const cursorLine = lines.find((line) => line.includes(CURSOR_MARKER));
+		expect(cursorLine).toBeDefined();
+		expect(cursorLine).toContain("always yes");
+		expect(lines.join("\n")).toContain("yes, on yes");
+
+		press(dialog, KEYS.up);
+		const back = dialog.render(80).find((line) => line.includes(CURSOR_MARKER));
+		expect(back).toContain("yes, on yes");
+	});
+
+	test("a draft stays visible after the editor closes", () => {
+		const { dialog } = open();
+		press(dialog, KEYS.tab);
+		type(dialog, "keep");
+		press(dialog, KEYS.tab);
+		expect(dialog.render(80).join("\n")).toContain("yes, keep");
+	});
+
+	test("each row keeps its own draft while arrowing", () => {
+		const { dialog, decisions } = open();
+		press(dialog, KEYS.tab);
+		type(dialog, "first");
+		press(dialog, KEYS.down, KEYS.up, KEYS.enter);
+		expect(decisions).toEqual([{ decision: "allow", note: "first", remember: undefined }]);
+	});
+
+	test("arrows wrap around while editing", () => {
+		const { dialog, decisions } = open();
+		press(dialog, KEYS.tab);
+		type(dialog, "reason");
+		press(dialog, KEYS.up, KEYS.enter);
+		expect(decisions).toEqual([NO]);
+	});
+
+	test("typing still goes to the row the editor landed on", () => {
+		const { dialog, decisions } = open();
+		press(dialog, KEYS.tab);
+		type(dialog, "first");
+		press(dialog, KEYS.down);
 		type(dialog, "second");
 		press(dialog, KEYS.enter, KEYS.enter);
 		expect(decisions).toEqual([

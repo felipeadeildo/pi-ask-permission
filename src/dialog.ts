@@ -1,15 +1,8 @@
 /**
- * The permission dialog.
- *
- * Three decisions, numbered so they survive an IME candidate buffer: `1`/`2`/`3`
- * move the highlight and `enter` confirms. Tab arms an inline note on the
- * highlighted row, which turns "yes" into "yes, and..." and "deny" into "deny,
- * because..." without spending three more rows on it.
- *
- * "always yes" opens a depth picker first: the levels come from the call
- * itself, so you approve `git`, `git status`, or the exact command as typed.
+ * The permission dialog: three numbered decisions, Tab for an inline note, and
+ * a depth picker behind "always yes".
  */
-import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
 	type Focusable,
@@ -22,48 +15,8 @@ import {
 } from "@earendil-works/pi-tui";
 
 import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "./grants.ts";
+import { type AskDecision, BASE_OPTIONS, type DecisionOption } from "./options.ts";
 import type { CallTarget } from "./targets.ts";
-
-export interface AskDecision {
-	decision: "allow" | "deny";
-	/** A note on an approval, or the reason on a denial. */
-	note?: string;
-	/** Level to remember for the rest of the session. */
-	remember?: string;
-	/** Where to remember it. Only meaningful alongside `remember`. */
-	scope?: GrantScope;
-}
-
-export interface DecisionOption {
-	key: string;
-	decision: "allow" | "deny";
-	always: boolean;
-	label: string;
-	tone: "success" | "warning" | "error";
-}
-
-/** The three rows of the TUI dialog. */
-export const BASE_OPTIONS: DecisionOption[] = [
-	{ key: "1", decision: "allow", always: false, label: "yes", tone: "success" },
-	{ key: "2", decision: "allow", always: true, label: "always yes", tone: "warning" },
-	{ key: "3", decision: "deny", always: false, label: "deny", tone: "error" },
-];
-
-/**
- * Flat list for UI contexts that cannot host the component (RPC). There is no
- * Tab there, so the note modifier gets its own row, which doubles the list.
- */
-export const FALLBACK_OPTIONS: (DecisionOption & { note: boolean })[] = BASE_OPTIONS.flatMap(
-	(option, index) => [
-		{ ...option, key: String(index * 2 + 1), note: false },
-		{
-			...option,
-			key: String(index * 2 + 2),
-			note: true,
-			label: `${option.label}, ${option.decision === "allow" ? "with a note" : "with a reason"}`,
-		},
-	],
-);
 
 type Phase = "menu" | "levels";
 
@@ -89,19 +42,21 @@ export class AskDialog implements Component, Focusable {
 	private readonly target: CallTarget;
 	private readonly requestRender: () => void;
 	private readonly complete: (decision: AskDecision) => void;
-	private readonly noteInput = new Input({ prompt: "", placeholder: "" });
+	/** One note editor per row, so each row keeps its own draft. */
+	private readonly noteInputs: Input[];
 
 	private phase: Phase = "menu";
 	private selected = 0;
 	private levelIndex = 0;
 	private scopeIndex = 0;
 	private pending: DecisionOption | null = null;
-	/** Row whose inline note editor is open, or null when none is. */
 	private noteIndex: number | null = null;
-	/** Remembers the draft across a Tab toggle so re-arming does not lose typing. */
-	private lastArmed: number | null = null;
 	/** Note carried from the menu into the depth picker. */
 	private pendingNote: string | undefined;
+
+	private get activeNoteInput(): Input | undefined {
+		return this.noteIndex === null ? undefined : this.noteInputs[this.noteIndex];
+	}
 
 	private focusedFlag = false;
 	get focused(): boolean {
@@ -109,7 +64,7 @@ export class AskDialog implements Component, Focusable {
 	}
 	set focused(value: boolean) {
 		this.focusedFlag = value;
-		this.noteInput.focused = value;
+		for (const input of this.noteInputs) input.focused = value;
 	}
 
 	constructor(options: AskDialogOptions) {
@@ -119,12 +74,14 @@ export class AskDialog implements Component, Focusable {
 		this.requestRender = options.requestRender;
 		this.complete = options.complete;
 
-		this.noteInput.onSubmit = () => {
-			if (this.noteIndex !== null) this.choose(this.noteIndex);
-		};
-		this.noteInput.onEscape = () => {
-			this.noteIndex = null;
-		};
+		this.noteInputs = [...BASE_OPTIONS.keys()].map((index) => {
+			const input = new Input({ prompt: "", placeholder: "" });
+			input.onSubmit = () => this.choose(index);
+			input.onEscape = () => {
+				this.noteIndex = null;
+			};
+			return input;
+		});
 	}
 
 	handleInput(data: string): void {
@@ -136,7 +93,7 @@ export class AskDialog implements Component, Focusable {
 	}
 
 	invalidate(): void {
-		this.noteInput.invalidate();
+		for (const input of this.noteInputs) input.invalidate();
 	}
 
 	render(width: number): string[] {
@@ -156,7 +113,7 @@ export class AskDialog implements Component, Focusable {
 					"dim",
 					this.noteIndex === null
 						? "\u2191\u2193 or 1-3 pick   enter confirm   tab note   esc deny"
-						: "enter confirm   esc back",
+						: "\u2191\u2193 pick   enter confirm   esc back",
 				),
 			);
 		}
@@ -166,8 +123,10 @@ export class AskDialog implements Component, Focusable {
 
 	private dispatch(data: string): void {
 		if (this.phase === "menu" && this.noteIndex !== null) {
-			if (matchesKey(data, Key.tab)) this.noteIndex = null;
-			else this.noteInput.handleInput(data);
+			if (matchesKey(data, Key.up)) this.moveNote(-1);
+			else if (matchesKey(data, Key.down)) this.moveNote(1);
+			else if (matchesKey(data, Key.tab)) this.noteIndex = null;
+			else this.activeNoteInput?.handleInput(data);
 			return;
 		}
 
@@ -183,15 +142,15 @@ export class AskDialog implements Component, Focusable {
 		}
 
 		if (matchesKey(data, Key.up)) {
-			this.selected = (this.selected + BASE_OPTIONS.length - 1) % BASE_OPTIONS.length;
+			this.moveSelection(-1);
 			return;
 		}
 		if (matchesKey(data, Key.down)) {
-			this.selected = (this.selected + 1) % BASE_OPTIONS.length;
+			this.moveSelection(1);
 			return;
 		}
 		if (matchesKey(data, Key.tab)) {
-			this.arm(this.selected);
+			this.noteIndex = this.selected;
 			return;
 		}
 		if (matchesKey(data, Key.enter)) {
@@ -203,17 +162,22 @@ export class AskDialog implements Component, Focusable {
 			return;
 		}
 
-		// Digits move the highlight rather than deciding, so every row can be
-		// combined with Tab (note) and Enter (confirm) the same way.
+		// Digits move the highlight; Tab and Enter then act on that row.
 		const picked = BASE_OPTIONS.findIndex((option) => option.key === data);
 		if (picked >= 0) this.selected = picked;
 	}
 
-	private arm(index: number): void {
-		if (this.lastArmed !== index) this.noteInput.setValue("");
-		this.lastArmed = index;
-		this.noteIndex = index;
-		this.selected = index;
+	/** Moves the highlight, wrapping at the ends. */
+	private moveSelection(delta: number): void {
+		const count = BASE_OPTIONS.length;
+		this.selected = (this.selected + delta + count) % count;
+	}
+
+	/** Moves the highlight and the open note editor together. */
+	private moveNote(delta: number): void {
+		if (this.noteIndex === null) return;
+		this.moveSelection(delta);
+		this.noteIndex = this.selected;
 	}
 
 	private choose(index: number): void {
@@ -221,8 +185,7 @@ export class AskDialog implements Component, Focusable {
 		if (!option) return;
 		this.selected = index;
 
-		// The depth picker is also where the scope is chosen, so it opens even when
-		// there is only one level to pick.
+		// The depth picker also picks the scope, so it opens even for a single level.
 		if (option.always) {
 			this.pending = option;
 			this.pendingNote = this.draftNote();
@@ -257,8 +220,7 @@ export class AskDialog implements Component, Focusable {
 	}
 
 	private draftNote(): string | undefined {
-		if (this.noteIndex === null) return undefined;
-		return this.noteInput.getValue().trim() || undefined;
+		return this.activeNoteInput?.getValue().trim() || undefined;
 	}
 
 	private levelLines(): string[] {
@@ -284,19 +246,25 @@ export class AskDialog implements Component, Focusable {
 
 	private renderOption(option: DecisionOption, index: number, inner: number): string {
 		const active = index === this.selected;
+		const editing = this.noteIndex === index;
+		const input = this.noteInputs[index];
+		const draft = input?.getValue().trim() ?? "";
 		const marker = active ? this.theme.fg("accent", "\u276f ") : "  ";
 		const key = this.theme.fg(active ? "accent" : "dim", option.key);
 		const prefix = `${marker}${key}  `;
 
-		if (this.noteIndex !== index) {
+		if (!editing && !draft) {
 			return `${prefix}${this.theme.fg(active ? option.tone : "text", option.label)}`;
 		}
 
 		const room = Math.max(1, inner - visibleWidth(prefix));
 		const label = truncateToWidth(`${option.label}, `, room);
-		const inputRoom = Math.max(1, room - visibleWidth(label));
-		const line = `${prefix}${this.theme.fg(option.tone, label)}${this.noteInput.render(inputRoom)[0] ?? ""}`;
-		return truncateToWidth(line, inner);
+		const noteRoom = Math.max(1, room - visibleWidth(label));
+		const note = editing
+			? (input?.render(noteRoom)[0] ?? "")
+			: this.theme.fg("dim", truncateToWidth(draft, noteRoom));
+		const head = this.theme.fg(active ? option.tone : "text", label);
+		return truncateToWidth(`${prefix}${head}${note}`, inner);
 	}
 
 	private summaryLines(inner: number): string[] {
@@ -339,41 +307,4 @@ export class AskDialog implements Component, Focusable {
 			this.theme.fg("border", `${"\u2500".repeat(dashes)}${TITLE_SUFFIX}`)
 		);
 	}
-}
-
-/** Fallback for RPC and any other UI that cannot host a custom component. */
-export async function askViaSelector(
-	ctx: ExtensionContext,
-	toolName: string,
-	target: CallTarget,
-): Promise<AskDecision> {
-	const labels = FALLBACK_OPTIONS.map((option) => `${option.key}. ${option.label}`);
-	const choice = await ctx.ui.select(`Allow ${toolName}?\n${target.summary}`, labels);
-	const option = choice ? FALLBACK_OPTIONS[labels.indexOf(choice)] : undefined;
-	if (!option) return { decision: "deny" };
-
-	let remember: string | undefined;
-	let scope: GrantScope | undefined;
-	if (option.always) {
-		if (target.levels.length === 1) {
-			remember = target.levels[0];
-		} else {
-			const level = await ctx.ui.select("Always yes for...", target.levels);
-			if (!level) return { decision: "deny" };
-			remember = level;
-		}
-
-		const scopeLabels = GRANT_SCOPES.map((candidate) => SCOPE_LABEL[candidate]);
-		const picked = await ctx.ui.select("Remember for...", scopeLabels);
-		if (!picked) return { decision: "deny" };
-		scope = GRANT_SCOPES[scopeLabels.indexOf(picked)];
-	}
-
-	let note: string | undefined;
-	if (option.note) {
-		const prompt = option.decision === "allow" ? "Note to the agent:" : "Reason for the agent:";
-		note = (await ctx.ui.input(prompt))?.trim() || undefined;
-	}
-
-	return { decision: option.decision, note, remember, scope };
 }

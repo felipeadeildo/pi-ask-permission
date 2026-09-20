@@ -31,7 +31,7 @@ permission · bash
   2  always yes
 ❯ 3  deny, use pnpm instead
 
-enter confirm   esc back
+↑↓ pick   enter confirm   esc back
 ```
 
 The agent reads the reason while it is still working, which is the difference between being corrected and being restarted.
@@ -46,10 +46,12 @@ permission · write
   2  always yes
   3  deny
 
-enter confirm   esc back
+↑↓ pick   enter confirm   esc back
 ```
 
 The note rides along with the result, so the agent has it before it plans its next step.
+
+While the input is open, `↑` and `↓` still move the highlight and take the editor with them. Each row keeps its own draft, so a note you typed stays on its row after you look at another option.
 
 ## Always yes asks two questions
 
@@ -109,7 +111,7 @@ Or clone it anywhere and point `~/.pi/agent/settings.json` at `src/index.ts`. Th
 
 | Key                    | Does                                                                    |
 | ---------------------- | ----------------------------------------------------------------------- |
-| `↑` `↓` or `1` `2` `3` | move the highlight                                                      |
+| `↑` `↓` or `1` `2` `3` | move the highlight, and the open note input with it                     |
 | `enter`                | confirm the highlighted row                                             |
 | `tab`                  | open or close the note input, and in the depth picker, change the scope |
 | `esc`                  | deny, or close the note input if one is open                            |

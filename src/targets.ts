@@ -1,17 +1,11 @@
 /**
- * What a tool call is about, and the nesting levels a user can approve it at.
- *
- * The same level strings double as the memory keys for "always yes": approving
- * `git` remembers the level `git`, and a later call whose own levels include
- * `git` is already approved. Approving the finest level therefore remembers
- * exactly the call in front of you, and coarser levels widen the grant by
- * prefix.
+ * What a tool call is about, and the levels a user can approve it at. A level
+ * doubles as the memory key for "always yes".
  */
 import { homedir } from "node:os";
 import { dirname } from "node:path";
 
 export interface CallTarget {
-	/** One-line description of the call, for the dialog header. */
 	summary: string;
 	/** Approval levels, coarsest first. Always at least one entry. */
 	levels: string[];
@@ -39,11 +33,7 @@ export function deriveTarget(toolName: string, input: unknown): CallTarget {
 	return { summary: summarizeInput(record), levels: [toolName] };
 }
 
-/**
- * Coarsest to finest: `git`, `git status`, the command as typed. A leading
- * environment assignment is skipped for the coarse levels so the gate is about
- * the command, not the environment it runs in.
- */
+/** Coarsest to finest: the head, the head plus subcommand, then the whole command. */
 export function commandLevels(command: string): string[] {
 	const tokens = tokenize(command).filter((token) => !ASSIGNMENT.test(token));
 	const head = tokens[0];
@@ -58,7 +48,6 @@ export function commandLevels(command: string): string[] {
 	return levels;
 }
 
-/** The containing directory, then the path itself. */
 export function pathLevels(path: string): string[] {
 	const exact = path.trim();
 	if (!exact) return ["(no path)"];

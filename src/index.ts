@@ -1,14 +1,6 @@
 /**
- * pi-ask-permission: a permission gate you can actually answer.
- *
- * Every tool call that is not on the allowlist stops and asks, with three
- * choices: yes / always yes / deny. Tab turns any of them into a followup, so
- * "yes, and..." and "deny, because..." cost one keystroke rather than three rows.
- * "Always yes" opens a depth picker built from the call itself, then a scope,
- * so the grant is as wide and as long-lived as you meant and no more.
- *
- * Session grants live in memory; project and global grants live in a
- * `grants.json` per scope, kept apart from the hand-written config.
+ * pi-ask-permission: every tool call not on the allowlist stops and asks yes /
+ * always yes / deny, each with an optional note.
  *
  * Config: <agentDir>/extensions/pi-ask-permission/config.json
  * Commands: /perm, /perm status, /perm reset [session|project|global|all]
@@ -28,7 +20,7 @@ import {
 	projectGrantsPath,
 	saveConfig,
 } from "./config.ts";
-import { type AskDecision, AskDialog, askViaSelector } from "./dialog.ts";
+import { AskDialog } from "./dialog.ts";
 import {
 	type GrantScope,
 	GRANT_SCOPES,
@@ -39,9 +31,11 @@ import {
 	loadGrants,
 	saveGrants,
 } from "./grants.ts";
+import { type AskDecision } from "./options.ts";
+import { askViaSelector } from "./selector.ts";
 import { type CallTarget, deriveTarget } from "./targets.ts";
 
-/** Used for the status key, the message namespace, and every user-facing string. */
+/** Message namespace and the name in every user-facing string. */
 const NAME = "pi-ask-permission";
 
 type PersistedScope = Exclude<GrantScope, "session">;
@@ -92,8 +86,7 @@ export default function piAskPermission(pi: ExtensionAPI) {
 
 	/**
 	 * Reloads the two persisted scopes. The project file is read only for a
-	 * trusted project: a repository that ships its own grants must not be able
-	 * to widen its own permissions.
+	 * trusted project, so a repository cannot widen its own permissions.
 	 */
 	const loadScopes = (ctx: ExtensionContext): void => {
 		grants.session.clear();
@@ -153,9 +146,7 @@ export default function piAskPermission(pi: ExtensionAPI) {
 		return undefined;
 	});
 
-	// With `followup: "result"` the note rides inside the tool result, so it
-	// arrives with the output the model is already reading rather than as a turn
-	// of its own.
+	// "result" appends the note to the tool output the model already reads.
 	pi.on("tool_result", (event) => {
 		const note = pendingNotes.get(event.toolCallId);
 		if (!note) return undefined;
@@ -323,12 +314,10 @@ function isGrantScope(value: string): value is GrantScope {
 	return GRANT_SCOPES.some((scope) => scope === value);
 }
 
-/** A scope name, or `all` to clear every scope at once. */
 function isResetTarget(value: string): value is GrantScope | "all" {
 	return value === "all" || isGrantScope(value);
 }
 
-/** Loads one grants file, reporting a file that was there but unusable. */
 function loadScope(ctx: ExtensionContext, path: string): Set<string> {
 	const loaded = loadGrants(path);
 	if (loaded.warning) ctx.ui.notify(`${NAME}: ${loaded.warning}`, "warning");

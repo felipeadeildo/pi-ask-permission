@@ -1,19 +1,13 @@
 /**
- * Persisted "always yes" grants.
- *
- * A grant is a (tool, level) pair, stored on disk as `{ [tool]: [level] }`.
- * Session grants never touch disk; project and global grants each live in their
- * own `grants.json`, so the hand-written `config.json` is never machine-edited.
- *
- * Project grants are read only for a trusted project. A repository that ships
- * its own `grants.json` must not be able to widen its own permissions.
+ * Persisted "always yes" grants, stored as `{ [tool]: [level] }`. Session grants
+ * stay in memory; project and global grants each get their own grants.json.
+ * Project grants are read only for a trusted project.
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 import { describe, isRecord } from "./util.ts";
 
-/** Where a grant is remembered. */
 export type GrantScope = "session" | "project" | "global";
 
 /** Cycle order in the dialog: narrowest first. */
@@ -27,9 +21,7 @@ export const SCOPE_LABEL: Record<GrantScope, string> = {
 
 export interface LoadedGrants {
 	grants: Set<string>;
-	/** Whether the file was there at all. */
 	found: boolean;
-	/** Set when the file was there but unusable. */
 	warning?: string;
 }
 

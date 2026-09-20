@@ -1,7 +1,3 @@
-/**
- * Small helpers shared by the modules that read JSON and filesystem errors.
- */
-
 export function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
