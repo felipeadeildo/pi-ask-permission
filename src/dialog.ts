@@ -21,6 +21,7 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
+import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "./grants.ts";
 import type { CallTarget } from "./targets.ts";
 
 export interface AskDecision {
@@ -29,6 +30,8 @@ export interface AskDecision {
 	note?: string;
 	/** Level to remember for the rest of the session. */
 	remember?: string;
+	/** Where to remember it. Only meaningful alongside `remember`. */
+	scope?: GrantScope;
 }
 
 export interface DecisionOption {
@@ -91,6 +94,7 @@ export class AskDialog implements Component, Focusable {
 	private phase: Phase = "menu";
 	private selected = 0;
 	private levelIndex = 0;
+	private scopeIndex = 0;
 	private pending: DecisionOption | null = null;
 	/** Row whose inline note editor is open, or null when none is. */
 	private noteIndex: number | null = null;
@@ -171,6 +175,8 @@ export class AskDialog implements Component, Focusable {
 			if (matchesKey(data, Key.up)) this.levelIndex = Math.max(0, this.levelIndex - 1);
 			else if (matchesKey(data, Key.down))
 				this.levelIndex = Math.min(this.target.levels.length - 1, this.levelIndex + 1);
+			else if (matchesKey(data, Key.tab))
+				this.scopeIndex = (this.scopeIndex + 1) % GRANT_SCOPES.length;
 			else if (matchesKey(data, Key.enter)) this.confirmLevel();
 			else if (matchesKey(data, Key.escape)) this.phase = "menu";
 			return;
@@ -215,11 +221,14 @@ export class AskDialog implements Component, Focusable {
 		if (!option) return;
 		this.selected = index;
 
-		if (option.always && this.target.levels.length > 1) {
+		// The depth picker is also where the scope is chosen, so it opens even when
+		// there is only one level to pick.
+		if (option.always) {
 			this.pending = option;
 			this.pendingNote = this.draftNote();
 			this.noteIndex = null;
 			this.levelIndex = this.target.levels.length - 1;
+			this.scopeIndex = 0;
 			this.phase = "levels";
 			return;
 		}
@@ -239,7 +248,12 @@ export class AskDialog implements Component, Focusable {
 			decision: this.pending.decision,
 			note: this.pendingNote,
 			remember: level,
+			scope: this.currentScope,
 		});
+	}
+
+	private get currentScope(): GrantScope {
+		return GRANT_SCOPES[this.scopeIndex] ?? "session";
 	}
 
 	private draftNote(): string | undefined {
@@ -258,7 +272,13 @@ export class AskDialog implements Component, Focusable {
 
 		if (this.pendingNote) lines.push(this.theme.fg("muted", `note: ${this.pendingNote}`));
 		lines.push("");
-		lines.push(this.theme.fg("dim", "\u2191\u2193 choose depth   enter confirm   esc back"));
+		lines.push(
+			this.theme.fg("muted", "scope: ") +
+				this.theme.fg("accent", SCOPE_LABEL[this.currentScope]) +
+				this.theme.fg("dim", "   (tab to change)"),
+		);
+		lines.push("");
+		lines.push(this.theme.fg("dim", "\u2191\u2193 depth   tab scope   enter confirm   esc back"));
 		return lines;
 	}
 
@@ -333,6 +353,7 @@ export async function askViaSelector(
 	if (!option) return { decision: "deny" };
 
 	let remember: string | undefined;
+	let scope: GrantScope | undefined;
 	if (option.always) {
 		if (target.levels.length === 1) {
 			remember = target.levels[0];
@@ -341,6 +362,11 @@ export async function askViaSelector(
 			if (!level) return { decision: "deny" };
 			remember = level;
 		}
+
+		const scopeLabels = GRANT_SCOPES.map((candidate) => SCOPE_LABEL[candidate]);
+		const picked = await ctx.ui.select("Remember for...", scopeLabels);
+		if (!picked) return { decision: "deny" };
+		scope = GRANT_SCOPES[scopeLabels.indexOf(picked)];
 	}
 
 	let note: string | undefined;
@@ -349,5 +375,5 @@ export async function askViaSelector(
 		note = (await ctx.ui.input(prompt))?.trim() || undefined;
 	}
 
-	return { decision: option.decision, note, remember };
+	return { decision: option.decision, note, remember, scope };
 }

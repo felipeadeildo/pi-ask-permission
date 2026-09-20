@@ -9,6 +9,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { describe, isRecord } from "./util.ts";
+
 /** What to do when there is nobody to ask. */
 export type HeadlessMode = "allow" | "deny";
 
@@ -57,6 +59,15 @@ export function agentDir(): string {
 /** Runtime state lives beside the other extensions, never inside the checkout. */
 export function configPath(): string {
 	return join(agentDir(), "extensions", "pi-ask-permission", "config.json");
+}
+
+export function grantsPath(): string {
+	return join(agentDir(), "extensions", "pi-ask-permission", "grants.json");
+}
+
+/** Project state follows `CONFIG_DIR_NAME`, which a rebranded pi may rename. */
+export function projectGrantsPath(cwd: string, configDirName: string): string {
+	return join(cwd, configDirName, "extensions", "pi-ask-permission", "grants.json");
 }
 
 export function loadConfig(): LoadedConfig {
@@ -193,18 +204,10 @@ function writeConfigFile(path: string, config: AskConfig): void {
 	writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 const patternCache = new Map<string, RegExp>();
 
 function expandTilde(path: string): string {
 	if (path === "~") return homedir();
 	if (path.startsWith("~/")) return join(homedir(), path.slice(2));
 	return path;
-}
-
-function describe(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

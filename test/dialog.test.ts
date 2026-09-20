@@ -4,6 +4,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, visibleWidth } from "@earendil-works/pi-tui";
 
 import { type AskDecision, AskDialog, FALLBACK_OPTIONS } from "../src/dialog.ts";
+import type { GrantScope } from "../src/grants.ts";
 import { deriveTarget } from "../src/targets.ts";
 
 /** Colour-free stand-in; only fg/bold are ever called by the dialog. */
@@ -88,7 +89,7 @@ describe("always yes depth picker", () => {
 		expect(decisions).toEqual([]);
 		press(dialog, KEYS.enter);
 		expect(decisions).toEqual([
-			{ decision: "allow", note: undefined, remember: "git status --short" },
+			{ decision: "allow", note: undefined, remember: "git status --short", scope: "session" },
 		]);
 	});
 
@@ -116,14 +117,53 @@ describe("always yes depth picker", () => {
 		type(dialog, "zzz");
 		press(dialog, KEYS.enter);
 		expect(decisions).toEqual([
-			{ decision: "allow", note: undefined, remember: "git status --short" },
+			{ decision: "allow", note: undefined, remember: "git status --short", scope: "session" },
 		]);
 	});
 
-	test("a tool with one level remembers it without a picker", () => {
+	test("a single-level target still offers a scope", () => {
 		const { dialog, decisions } = open("todo", { items: [] });
 		press(dialog, "2", KEYS.enter);
-		expect(decisions).toEqual([{ decision: "allow", note: undefined, remember: "todo" }]);
+		expect(decisions).toEqual([]);
+		press(dialog, KEYS.enter);
+		expect(decisions).toEqual([
+			{ decision: "allow", note: undefined, remember: "todo", scope: "session" },
+		]);
+	});
+});
+
+describe("grant scope", () => {
+	test("tab cycles session, project, everywhere", () => {
+		const steps: [string[], GrantScope][] = [
+			[[], "session"],
+			[[KEYS.tab], "project"],
+			[[KEYS.tab, KEYS.tab], "global"],
+			[[KEYS.tab, KEYS.tab, KEYS.tab], "session"],
+		];
+
+		for (const [tabs, expected] of steps) {
+			const { dialog, decisions } = open();
+			press(dialog, "2", KEYS.enter, ...tabs, KEYS.enter);
+			expect(decisions[0]?.scope).toBe(expected);
+		}
+	});
+
+	test("the picker shows the scope it will write", () => {
+		const { dialog } = open();
+		press(dialog, "2", KEYS.enter);
+		expect(dialog.render(80).join("\n")).toContain("scope: this session");
+
+		press(dialog, KEYS.tab);
+		expect(dialog.render(80).join("\n")).toContain("scope: this project");
+
+		press(dialog, KEYS.tab);
+		expect(dialog.render(80).join("\n")).toContain("scope: everywhere");
+	});
+
+	test("a plain yes carries no scope", () => {
+		const { dialog, decisions } = open();
+		press(dialog, KEYS.enter);
+		expect(decisions).toEqual([YES]);
 	});
 });
 
@@ -185,7 +225,9 @@ describe("tab followups", () => {
 		press(dialog, KEYS.enter);
 		expect(decisions).toEqual([]);
 		press(dialog, KEYS.up, KEYS.enter);
-		expect(decisions).toEqual([{ decision: "allow", note: "careful", remember: "git status" }]);
+		expect(decisions).toEqual([
+			{ decision: "allow", note: "careful", remember: "git status", scope: "session" },
+		]);
 	});
 
 	test("arming a different row clears the previous draft", () => {
@@ -196,7 +238,7 @@ describe("tab followups", () => {
 		type(dialog, "second");
 		press(dialog, KEYS.enter, KEYS.enter);
 		expect(decisions).toEqual([
-			{ decision: "allow", note: "second", remember: "git status --short" },
+			{ decision: "allow", note: "second", remember: "git status --short", scope: "session" },
 		]);
 	});
 });

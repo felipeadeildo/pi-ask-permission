@@ -4,42 +4,116 @@
  * Every tool call that is not on the allowlist stops and asks, with three
  * choices: yes / always yes / deny. Tab turns any of them into a followup, so
  * "yes, and..." and "deny, because..." cost one keystroke rather than three rows.
- * "Always yes" opens a depth picker built from the call itself, so the grant is
- * as wide as you meant and no wider.
+ * "Always yes" opens a depth picker built from the call itself, then a scope,
+ * so the grant is as wide and as long-lived as you meant and no more.
+ *
+ * Session grants live in memory; project and global grants live in a
+ * `grants.json` per scope, kept apart from the hand-written config.
  *
  * Config: <agentDir>/extensions/pi-ask-permission/config.json
- * Commands: /perm, /perm status, /perm reset
+ * Commands: /perm, /perm status, /perm reset [session|project|global|all]
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import { Container, type SettingItem, SettingsList, Text } from "@earendil-works/pi-tui";
 
 import {
 	type AskConfig,
+	grantsPath,
 	headlessMode,
 	isAllowed,
 	isFollowupWire,
 	isHeadlessMode,
 	loadConfig,
+	projectGrantsPath,
 	saveConfig,
 } from "./config.ts";
 import { type AskDecision, AskDialog, askViaSelector } from "./dialog.ts";
+import {
+	type GrantScope,
+	GRANT_SCOPES,
+	SCOPE_LABEL,
+	deleteGrants,
+	grantKey,
+	grantsFileExists,
+	loadGrants,
+	saveGrants,
+} from "./grants.ts";
 import { type CallTarget, deriveTarget } from "./targets.ts";
 
 /** Used for the status key, the message namespace, and every user-facing string. */
 const NAME = "pi-ask-permission";
 
+type PersistedScope = Exclude<GrantScope, "session">;
+
+function grantPath(scope: PersistedScope, cwd: string): string {
+	return scope === "global" ? grantsPath() : projectGrantsPath(cwd, CONFIG_DIR_NAME);
+}
+
 export default function piAskPermission(pi: ExtensionAPI) {
 	const loaded = loadConfig();
 	const config = loaded.config;
 
-	/** Session-scoped memory for "always yes", keyed `tool\0level`. */
-	const approved = new Set<string>();
+	/** Grants by scope. Session is memory only; the other two mirror their file. */
+	const grants: Record<GrantScope, Set<string>> = {
+		session: new Set(),
+		project: new Set(),
+		global: new Set(),
+	};
 	/** Approval notes waiting for their tool result, keyed by tool call id. */
 	const pendingNotes = new Map<string, string>();
 
+	const isGranted = (toolName: string, levels: string[]): boolean =>
+		levels.some((level) => {
+			const key = grantKey(toolName, level);
+			return grants.session.has(key) || grants.project.has(key) || grants.global.has(key);
+		});
+
+	const persist = (ctx: ExtensionContext, scope: PersistedScope): void => {
+		const error = saveGrants(grantPath(scope, ctx.cwd), grants[scope]);
+		if (error) ctx.ui.notify(`${NAME}: could not save grants: ${error}`, "error");
+	};
+
+	const forget = (ctx: ExtensionContext, scope: GrantScope | "all"): number => {
+		const targets = scope === "all" ? GRANT_SCOPES : [scope];
+		let removed = 0;
+
+		for (const target of targets) {
+			removed += grants[target].size;
+			grants[target].clear();
+			if (target === "session") continue;
+
+			const error = deleteGrants(grantPath(target, ctx.cwd));
+			if (error) ctx.ui.notify(`${NAME}: could not delete grants: ${error}`, "error");
+		}
+
+		return removed;
+	};
+
+	/**
+	 * Reloads the two persisted scopes. The project file is read only for a
+	 * trusted project: a repository that ships its own grants must not be able
+	 * to widen its own permissions.
+	 */
+	const loadScopes = (ctx: ExtensionContext): void => {
+		grants.session.clear();
+		grants.global = loadScope(ctx, grantsPath());
+
+		const projectFile = projectGrantsPath(ctx.cwd, CONFIG_DIR_NAME);
+		if (ctx.isProjectTrusted()) {
+			grants.project = loadScope(ctx, projectFile);
+			return;
+		}
+
+		grants.project = new Set();
+		if (grantsFileExists(projectFile)) {
+			ctx.ui.notify(`${NAME}: ${projectFile} skipped, this project is not trusted`, "warning");
+		}
+	};
+
 	pi.on("session_start", (_event, ctx) => {
 		for (const warning of loaded.warnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
+		loadScopes(ctx);
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
@@ -49,7 +123,7 @@ export default function piAskPermission(pi: ExtensionAPI) {
 		if (isAllowed(config, toolName)) return undefined;
 
 		const target = deriveTarget(toolName, event.input);
-		if (target.levels.some((level) => approved.has(memoryKey(toolName, level)))) return undefined;
+		if (isGranted(toolName, target.levels)) return undefined;
 
 		if (!ctx.hasUI) return headlessRefusal(config, toolName);
 
@@ -60,8 +134,15 @@ export default function piAskPermission(pi: ExtensionAPI) {
 		}
 
 		if (decision.remember) {
-			approved.add(memoryKey(toolName, decision.remember));
-			ctx.ui.notify(`${NAME}: always yes for ${toolName} \u00b7 ${decision.remember}`, "info");
+			const scope = decision.scope ?? "session";
+			grants[scope].add(grantKey(toolName, decision.remember));
+			if (scope !== "session") persist(ctx, scope);
+
+			const where = SCOPE_LABEL[scope];
+			ctx.ui.notify(
+				`${NAME}: always yes for ${toolName} \u00b7 ${decision.remember} (${where})`,
+				"info",
+			);
 		}
 
 		if (decision.note) {
@@ -86,23 +167,28 @@ export default function piAskPermission(pi: ExtensionAPI) {
 	pi.registerCommand("perm", {
 		description: `${NAME}: settings, status, reset`,
 		handler: async (args, ctx) => {
-			const verb = args.trim().toLowerCase();
+			const [verb, argument] = args.trim().toLowerCase().split(/\s+/);
 
 			if (verb === "reset") {
-				const count = approved.size;
-				approved.clear();
-				ctx.ui.notify(`${NAME}: forgot ${approvalCount(count)}`, "info");
+				const target = argument ?? "session";
+				if (!isResetTarget(target)) {
+					ctx.ui.notify(`${NAME}: reset takes session, project, global, or all`, "warning");
+					return;
+				}
+
+				const where = target === "all" ? "every scope" : SCOPE_LABEL[target];
+				ctx.ui.notify(`${NAME}: forgot ${grantCount(forget(ctx, target))} from ${where}`, "info");
 				return;
 			}
 
 			if (verb === "status" || ctx.mode !== "tui") {
-				ctx.ui.notify(statusText(config, approved.size, loaded.path), "info");
+				ctx.ui.notify(statusText(config, grants, loaded.path, ctx.cwd), "info");
 				return;
 			}
 
 			await openSettings(ctx, {
 				config,
-				approved,
+				grants,
 				save: () => {
 					const error = saveConfig(config);
 					if (error) ctx.ui.notify(`${NAME}: could not save config: ${error}`, "error");
@@ -114,7 +200,7 @@ export default function piAskPermission(pi: ExtensionAPI) {
 
 interface SettingsState {
 	config: AskConfig;
-	approved: Set<string>;
+	grants: Record<GrantScope, Set<string>>;
 	save: () => void;
 }
 
@@ -148,7 +234,7 @@ async function openSettings(ctx: ExtensionContext, state: SettingsState): Promis
 		container.addChild(
 			new Text(
 				theme.fg("accent", theme.bold(NAME)) +
-					theme.fg("dim", `  \u00b7  ${approvalCount(state.approved.size)}`),
+					theme.fg("dim", `  \u00b7  ${grantCount(totalGrants(state.grants))} held`),
 				1,
 				1,
 			),
@@ -205,10 +291,6 @@ async function ask(
 	return askViaSelector(ctx, toolName, target);
 }
 
-function memoryKey(toolName: string, level: string): string {
-	return `${toolName}\u0000${level}`;
-}
-
 function headlessRefusal(
 	config: AskConfig,
 	toolName: string,
@@ -237,18 +319,45 @@ function denyReason(note?: string): string {
 	return note ? `${NAME}: denied by the user.\n${note}` : `${NAME}: denied by the user.`;
 }
 
-function approvalCount(count: number): string {
-	return `${count} session approval${count === 1 ? "" : "s"}`;
+function isGrantScope(value: string): value is GrantScope {
+	return GRANT_SCOPES.some((scope) => scope === value);
 }
 
-function statusText(config: AskConfig, approvals: number, path: string): string {
+/** A scope name, or `all` to clear every scope at once. */
+function isResetTarget(value: string): value is GrantScope | "all" {
+	return value === "all" || isGrantScope(value);
+}
+
+/** Loads one grants file, reporting a file that was there but unusable. */
+function loadScope(ctx: ExtensionContext, path: string): Set<string> {
+	const loaded = loadGrants(path);
+	if (loaded.warning) ctx.ui.notify(`${NAME}: ${loaded.warning}`, "warning");
+	return loaded.grants;
+}
+
+function grantCount(count: number): string {
+	return `${count} grant${count === 1 ? "" : "s"}`;
+}
+
+function totalGrants(grants: Record<GrantScope, Set<string>>): number {
+	return GRANT_SCOPES.reduce((total, scope) => total + grants[scope].size, 0);
+}
+
+function statusText(
+	config: AskConfig,
+	grants: Record<GrantScope, Set<string>>,
+	configFile: string,
+	cwd: string,
+): string {
 	const headless =
 		typeof config.headless === "string" ? config.headless : JSON.stringify(config.headless);
 
 	return [
-		`${NAME} \u00b7 ${path}`,
+		`${NAME} \u00b7 ${configFile}`,
 		`allow: ${config.allow.join(", ") || "(none)"}`,
 		`followup: ${config.followup} \u00b7 headless: ${headless} \u00b7 yolo: ${config.yolo ? "on" : "off"}`,
-		`session approvals: ${approvals}`,
+		`grants: ${GRANT_SCOPES.map((scope) => `${grants[scope].size} ${scope}`).join(" \u00b7 ")}`,
+		`project file: ${projectGrantsPath(cwd, CONFIG_DIR_NAME)}`,
+		`global file: ${grantsPath()}`,
 	].join("\n");
 }
