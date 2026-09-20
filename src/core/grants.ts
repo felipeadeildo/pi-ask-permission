@@ -1,8 +1,3 @@
-/**
- * Persisted "always yes" grants, stored as `{ [tool]: [level] }`. Session grants
- * stay in memory; project and global grants each get their own grants.json.
- * Project grants are read only for a trusted project.
- */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -10,7 +5,6 @@ import { describe, isRecord } from "#util/primitives.ts";
 
 export type GrantScope = "session" | "project" | "global";
 
-/** Cycle order in the dialog: narrowest first. */
 export const GRANT_SCOPES: GrantScope[] = ["session", "project", "global"];
 
 export const SCOPE_LABEL: Record<GrantScope, string> = {
@@ -80,7 +74,6 @@ export function deleteGrants(path: string): string | undefined {
 	}
 }
 
-/** Groups the flat key set back into the on-disk shape, with stable ordering. */
 function toFile(grants: Set<string>): Record<string, string[]> {
 	const byTool = new Map<string, string[]>();
 

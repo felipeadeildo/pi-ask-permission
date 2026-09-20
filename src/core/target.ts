@@ -1,13 +1,9 @@
-/**
- * What a tool call is about, and the levels a user can approve it at. A level
- * doubles as the memory key for "always yes".
- */
 import { homedir } from "node:os";
 import { dirname } from "node:path";
 
 export interface CallDescriptor {
 	summary: string;
-	/** Approval levels, coarsest first. Always at least one entry. */
+
 	grantLevels: string[];
 }
 
@@ -33,7 +29,6 @@ export function deriveTarget(toolName: string, input: unknown): CallDescriptor {
 	return { summary: summarizeInput(record), grantLevels: [toolName] };
 }
 
-/** Coarsest to finest: the head, the head plus subcommand, then the whole command. */
 export function commandLevels(command: string): string[] {
 	const tokens = tokenize(command).filter((token) => !ASSIGNMENT.test(token));
 	const head = tokens[0];
@@ -80,7 +75,6 @@ export function summarizeInput(input: Record<string, unknown>): string {
 	}
 }
 
-/** Splits a shell command into words, respecting quotes and backslash escapes. */
 export function tokenize(command: string): string[] {
 	const tokens: string[] = [];
 	let current = "";

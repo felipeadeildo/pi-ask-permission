@@ -1,13 +1,7 @@
-/**
- * Deterministic composition. The judge supplies typed signals; this file turns
- * them into a decision with plain arithmetic, so the operator can read the rule
- * and change a number instead of rewriting a prompt.
- */
 import { matchesPattern } from "#core/config/patterns.ts";
 import type { JudgeConfig } from "#core/config/schema.ts";
 import type { JudgeAnswers } from "#core/judge/types.ts";
 
-/** Relative weight of each risk signal. Reversibility dominates on purpose. */
 export const RISK_WEIGHTS = {
 	reversibility: 0.45,
 	sensitive: 0.3,
@@ -18,10 +12,6 @@ export function neverMatches(config: JudgeConfig, values: string[]): boolean {
 	return config.never.some((pattern) => values.some((value) => matchesPattern(pattern, value)));
 }
 
-/**
- * Weighted risk in 0..1. Undefined when any signal is missing, because a
- * partial picture must not be treated as a safe one.
- */
 export function judgeRisk(answers: JudgeAnswers): number | undefined {
 	const { reversibility, sensitive_access, outside_workspace } = answers;
 	if (

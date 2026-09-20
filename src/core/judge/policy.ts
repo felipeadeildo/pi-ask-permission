@@ -1,9 +1,3 @@
-/**
- * Starter policies. The operator's policy is the authoritative rulebook the
- * judge reads, so these are written as plain rules a person would hand to a
- * colleague: what may run, what always asks, and what to do when unsure.
- */
-
 export interface PolicyPreset {
 	id: string;
 	label: string;
@@ -11,7 +5,6 @@ export interface PolicyPreset {
 	policy: string;
 }
 
-/** Shown when the editor opens with no policy yet. The user edits or replaces it. */
 export const POLICY_TEMPLATE = `# May run without asking
 - Reading, searching, listing, and inspecting files
 - Running tests, linters, type checks, and formatters
@@ -99,7 +92,6 @@ Ask me.
 	},
 ];
 
-/** The preset whose policy matches exactly, or "custom" for anything hand-written. */
 export function detectPolicyPreset(policy: string): string {
 	const match = POLICY_PRESETS.find((preset) => preset.id !== "custom" && preset.policy === policy);
 	return match ? match.id : "custom";
@@ -109,7 +101,6 @@ export function getPolicyPreset(id: string): PolicyPreset | undefined {
 	return POLICY_PRESETS.find((preset) => preset.id === id);
 }
 
-/** Soft cap: a policy longer than this is probably a mistake, not a rulebook. */
 export const MAX_POLICY_CHARS = 8000;
 
 export function policyWarning(policy: string): string | undefined {

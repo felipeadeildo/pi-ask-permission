@@ -1,7 +1,3 @@
-/**
- * The permission dialog: three numbered decisions, Tab for an inline note, and
- * a depth picker behind "always yes".
- */
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
@@ -31,12 +27,10 @@ import {
 
 type Phase = "menu" | "levels";
 
-/** Top border chrome: `╭─ ` before the title, ` ╮` after it. */
 const TITLE_PREFIX = "\u256d\u2500 ";
 const TITLE_SUFFIX = " \u256e";
 const TITLE_CHROME_WIDTH = visibleWidth(TITLE_PREFIX) + visibleWidth(TITLE_SUFFIX);
 
-/** Rows of the call summary shown before it is elided. */
 const SUMMARY_ROWS = 3;
 
 interface AskDialogOptions {
@@ -55,9 +49,9 @@ export class AskDialog implements Component, Focusable {
 	private readonly requestRender: () => void;
 	private readonly complete: (decision: PermissionDecision) => void;
 	private readonly keybindings: KeybindingsManager;
-	/** One note editor per row, so each row keeps its own draft. */
+
 	private readonly noteInputs: Input[];
-	/** Text a paste marker stands for, keyed by marker id. */
+
 	private readonly pastes = new Map<number, string>();
 	private pasteId = 0;
 	private pasteBuffer = "";
@@ -68,7 +62,7 @@ export class AskDialog implements Component, Focusable {
 	private scopeIndex = 0;
 	private pending: Choice | null = null;
 	private noteIndex: number | null = null;
-	/** Note carried from the menu into the depth picker. */
+
 	private pendingNote: string | undefined;
 
 	private get activeNoteInput(): Input | undefined {
@@ -180,18 +174,15 @@ export class AskDialog implements Component, Focusable {
 			return;
 		}
 
-		// Digits move the highlight; Tab and Enter then act on that row.
 		const picked = CHOICES.findIndex((option) => option.key === data);
 		if (picked >= 0) this.selected = picked;
 	}
 
-	/** Moves the highlight, wrapping at the ends. */
 	private moveSelection(delta: number): void {
 		const count = CHOICES.length;
 		this.selected = (this.selected + delta + count) % count;
 	}
 
-	/** Moves the highlight and the open note editor together. */
 	private moveNote(delta: number): void {
 		if (this.noteIndex === null) return;
 		this.moveSelection(delta);
@@ -203,7 +194,6 @@ export class AskDialog implements Component, Focusable {
 		if (!option) return;
 		this.selected = index;
 
-		// The depth picker also picks the scope, so it opens even for a single level.
 		if (option.always) {
 			this.pending = option;
 			this.pendingNote = this.draftNote();
@@ -245,7 +235,6 @@ export class AskDialog implements Component, Focusable {
 		return note || undefined;
 	}
 
-	/** Sends a keystroke to the note editor, after the paste checks. */
 	private handleNoteInput(data: string): void {
 		if (this.pasteBuffer !== "" || data.includes(PASTE_START)) {
 			this.bufferPaste(data);
@@ -301,7 +290,6 @@ export class AskDialog implements Component, Focusable {
 			return;
 		}
 
-		// Keep a pasted path from gluing to the word before it.
 		const spacer = /^[/~.]/.test(text) && /\w$/.test(input.getValue()) ? " " : "";
 		input.handleInput(spacer + text);
 	}

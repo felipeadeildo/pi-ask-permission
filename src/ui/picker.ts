@@ -1,7 +1,3 @@
-/**
- * A small select list for nested settings submenus. `SettingsList` cycles
- * values on Enter, which reads badly for a picker, so this one selects.
- */
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,

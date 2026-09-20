@@ -1,8 +1,3 @@
-/**
- * The judge settings screen, built as `SettingItem`s so it plugs into the same
- * `SettingsList` as the rest of `/perm`. Labels and descriptions carry the
- * meaning here: every row should be legible without reading the config file.
- */
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { SettingItem } from "@earendil-works/pi-tui";
 
@@ -26,7 +21,6 @@ const FALLBACK_LABEL: Record<JudgeFallback, string> = {
 	deny: "Deny",
 };
 
-/** Aliases and current pinned versions offered by the Jev picker. */
 export const JEV_MODELS = ["jev-latest", "jev-preview", "jev-1.13.0"];
 
 interface ToolPreset {
@@ -43,12 +37,12 @@ const TOOL_PRESETS: ToolPreset[] = [
 export interface JudgeSettingsHooks {
 	config: JudgeConfig;
 	theme: Theme;
-	/** `provider/modelId` for every model pi can use, in display order. */
+
 	piModels: string[];
 	save: () => void;
-	/** Close settings and open the policy editor. */
+
 	editPolicy: () => void;
-	/** Close settings and prompt for a Jev model name. */
+
 	editModel: () => void;
 }
 
@@ -151,7 +145,6 @@ export function buildJudgeSettings(hooks: JudgeSettingsHooks): JudgeSettings {
 	};
 }
 
-/** Every row the judge screen owns, so a change can refresh the whole list. */
 export type JudgeSettingId =
 	| "judge.backend"
 	| "judge.model"
@@ -177,7 +170,6 @@ export const JUDGE_SETTING_IDS: JudgeSettingId[] = [
 	"judge.grant",
 ];
 
-/** The display value for each judge row, so the screen refreshes after any change. */
 export function judgeValues(config: JudgeConfig): Record<JudgeSettingId, string> {
 	return {
 		"judge.backend": BACKEND_LABEL[config.backend],
@@ -217,7 +209,6 @@ function apply(hooks: JudgeSettingsHooks, id: string, value: string): void {
 			judge.tools = toolsFromLabel(value) ?? judge.tools;
 			return;
 		case "judge.policy": {
-			// The picker reports a preset label so the row stays readable.
 			const preset = POLICY_PRESETS.find((entry) => entry.label === value);
 			if (preset) judge.policy = preset.policy;
 			return;
@@ -234,7 +225,6 @@ function apply(hooks: JudgeSettingsHooks, id: string, value: string): void {
 	}
 }
 
-/** Keeps a chosen model when switching back, so the picker does not reset it. */
 function defaultModelFor(backend: JudgeBackendId, piModels: string[], current: string): string {
 	if (backend === "jev") return JEV_MODELS.includes(current) ? current : "jev-latest";
 	if (piModels.includes(current)) return current;

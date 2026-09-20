@@ -9,10 +9,6 @@ import {
 
 import { describe } from "#util/primitives.ts";
 
-/**
- * The edit tool with a no-op write, so `execute` runs the real checks and
- * throws the same error the real edit would without touching the file.
- */
 const dryRun = createEditToolDefinition(process.cwd(), {
 	operations: {
 		access: (path) => access(path, constants.R_OK | constants.W_OK),
@@ -21,7 +17,6 @@ const dryRun = createEditToolDefinition(process.cwd(), {
 	},
 });
 
-/** The matcher's message when an edit cannot apply, or undefined when it can. */
 export async function editFailure(
 	ctx: ExtensionContext,
 	input: EditToolInput,

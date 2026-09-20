@@ -7,10 +7,6 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Tracks keystrokes in the main editor so a dialog can wait for the user to
- * stop typing instead of opening mid-sentence.
- */
 export class TypingMonitor {
 	private readonly quietMs: number;
 	private readonly maxWaitMs: number | null;
@@ -28,7 +24,6 @@ export class TypingMonitor {
 		if (ctx.mode !== "tui") return;
 
 		this.unsubscribe = ctx.ui.onTerminalInput((data) => {
-			// Enter submits the prompt. Only drafting keystrokes hold the dialog back.
 			if (data !== "\r" && data !== "\n" && this.watching) this.lastTypedAt = Date.now();
 			return undefined;
 		});
@@ -42,7 +37,6 @@ export class TypingMonitor {
 		this.lastTypedAt = 0;
 	}
 
-	/** Stops counting keystrokes while a dialog owns the input. */
 	pause(): void {
 		this.watching = false;
 	}
@@ -51,7 +45,6 @@ export class TypingMonitor {
 		this.watching = this.unsubscribe !== undefined;
 	}
 
-	/** Waits out a burst of typing, reporting through `onWait` while it does. */
 	async waitUntilQuiet(
 		signal: AbortSignal | undefined,
 		onWait: (waiting: boolean) => void,

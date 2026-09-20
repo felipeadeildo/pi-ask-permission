@@ -1,7 +1,3 @@
-/**
- * The `/perm` settings screen. Kept apart from the event wiring so `index.ts`
- * stays about decisions and this file stays about UI.
- */
 import { type ExtensionContext, getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import { Container, type SettingItem, SettingsList, Text } from "@earendil-works/pi-tui";
 
@@ -15,18 +11,13 @@ export interface SettingsState {
 	config: PermissionConfig;
 	grants: Record<GrantScope, Set<string>>;
 	save: () => void;
-	/** Clears cached judge verdicts after any judge setting changes. */
+
 	onJudgeChange: () => void;
 }
 
 type SettingsRequest = { kind: "policy" } | { kind: "model" } | undefined;
 
-/**
- * Opens settings, then handles any request that needs a bigger UI than a list
- * row (the policy editor, a model name) before reopening the list.
- */
 export async function openSettings(ctx: ExtensionContext, state: SettingsState): Promise<void> {
-	// Each pass is one visit to the menu: it may open, ask for one bigger input, then reopen.
 	for (;;) {
 		// oxlint-disable-next-line no-await-in-loop -- the menu loop is sequential by design.
 		const request = await showSettings(ctx, state);
@@ -66,7 +57,6 @@ async function editModel(ctx: ExtensionContext, state: SettingsState): Promise<v
 	state.onJudgeChange();
 }
 
-/** How many rows the settings list shows before it starts scrolling. */
 const SETTINGS_VISIBLE = 16;
 
 async function showSettings(ctx: ExtensionContext, state: SettingsState): Promise<SettingsRequest> {
@@ -96,7 +86,6 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 			},
 		};
 
-		/** The judge's rows are children of the toggle, so they read as one group. */
 		const buildItems = (): SettingItem[] => {
 			judgeSettings = buildJudgeSettings(hooks);
 			const children = state.config.judge.enabled
@@ -125,10 +114,6 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 			settings.selectItem(focusId);
 		};
 
-		/**
-		 * Only the model row depends on another row: switching backend picks a new
-		 * default. Refreshing every row would fight the value the user just chose.
-		 */
 		const refreshModelRow = (): void => {
 			settings?.updateValue("judge.model", judgeValues(state.config.judge)["judge.model"]);
 		};
@@ -184,7 +169,6 @@ function followupItem(config: PermissionConfig): SettingItem {
 	};
 }
 
-/** The toggle lives here, on the parent row, so there is no duplicate on the child page. */
 export function judgeToggleItem(config: PermissionConfig): SettingItem {
 	return {
 		id: "judge.enabled",

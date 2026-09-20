@@ -1,10 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-/**
- * The extension's identity in one place. Renaming the project means editing
- * these two constants and the package name, nothing else.
- */
 export const NAME = "pi-ask-permission";
 export const CONFIG_DIR = "pi-ask-permission";
 

@@ -1,9 +1,3 @@
-/**
- * The extension entry point. It wires the pieces together and nothing else.
- *
- * Config: <agentDir>/extensions/pi-ask-permission/config.json
- * Commands: /perm, /perm status, /perm judge [log|test|on|off], /perm reset
- */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { registerBashTimer } from "#pi/bash-timer.ts";

@@ -17,11 +17,10 @@ import { TypingMonitor } from "#ui/typing.ts";
 
 export interface JudgeHealth {
 	failures: number;
-	/** Epoch ms before which the judge stays paused. */
+
 	retryAt: number;
 }
 
-/** Everything one loaded session owns. Created once, handed to events and commands. */
 export interface SessionState {
 	config: PermissionConfig;
 	configFile: string;
@@ -106,7 +105,6 @@ export function forgetGrants(
 	return removed;
 }
 
-/** The project file loads only for a trusted project, so a repo cannot widen itself. */
 export function loadGrantScopes(state: SessionState, ctx: ExtensionContext): void {
 	state.grants.session.clear();
 	state.grants.global = loadScope(ctx, grantsPath());

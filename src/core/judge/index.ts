@@ -1,5 +1,3 @@
-/** The judge module's public surface. */
-
 export * from "#core/judge/types.ts";
 export {
 	createJevBackend,

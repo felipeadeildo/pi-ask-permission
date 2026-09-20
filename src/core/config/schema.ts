@@ -1,12 +1,10 @@
-/** Config types and defaults. No file access, no validation, no pi. */
-
 export type HeadlessMode = "allow" | "deny";
 
 export type FollowupDelivery = "result" | "message";
 
 export interface TypingConfig {
 	pause: number;
-	/** null waits as long as the user keeps typing. */
+
 	maxWait: number | null;
 }
 
@@ -22,11 +20,11 @@ export interface JudgeThresholds {
 export interface JudgeConfig {
 	enabled: boolean;
 	backend: JudgeBackendId;
-	/** `jev` alias or pinned id, or `provider/modelId` for the `pi` backend. */
+
 	model: string;
-	/** Tool patterns the judge may decide. Empty means it never runs. */
+
 	tools: string[];
-	/** Patterns it may never auto-approve, whatever it answers. */
+
 	never: string[];
 	thresholds: JudgeThresholds;
 	intentFloor: number;
@@ -34,22 +32,21 @@ export interface JudgeConfig {
 	onUncertain: JudgeFallback;
 	autoDeny: boolean;
 	onError: JudgeFallback;
-	/** Also judge print, JSON, and subagent runs. */
+
 	headless: boolean;
-	/** Show the verdict but still ask. */
+
 	dryRun: boolean;
-	/** Remember judge approvals for the session. */
+
 	grant: boolean;
 	timeoutMs: number;
 	cache: boolean;
-	/** Send the last user message so intent can be judged. */
+
 	includeConversation: boolean;
-	/** Operator rulebook for what may run. */
+
 	policy: string;
 }
 
 export interface PermissionConfig {
-	/** Tool patterns that never prompt. `*` and `?` work. */
 	allow: string[];
 	headless: HeadlessMode | Record<string, HeadlessMode>;
 	followup: FollowupDelivery;
@@ -95,7 +92,6 @@ export const DEFAULT_CONFIG: PermissionConfig = {
 	judge: DEFAULT_JUDGE,
 };
 
-/** Fresh copies, so a decoded config never aliases the exported defaults. */
 export function defaultJudge(): JudgeConfig {
 	return {
 		...DEFAULT_JUDGE,

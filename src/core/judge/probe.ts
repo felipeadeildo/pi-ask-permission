@@ -3,7 +3,6 @@ import { createJudgeBackend, type JudgeDeps } from "#core/judge/backends/factory
 import type { JudgeInput } from "#core/judge/types.ts";
 import { describe } from "#util/primitives.ts";
 
-/** Long enough to tell a slow link from a blocked one. */
 const PROBE_TIMEOUT_MS = 15_000;
 
 export interface JudgeProbe {
@@ -13,7 +12,6 @@ export interface JudgeProbe {
 	elapsedMs: number;
 }
 
-/** One real request, for `/perm judge test`. */
 export async function probeJudge(
 	config: JudgeConfig,
 	deps: JudgeDeps,

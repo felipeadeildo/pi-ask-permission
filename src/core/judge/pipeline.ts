@@ -17,10 +17,6 @@ export interface JudgeCallOptions {
 	signal?: AbortSignal;
 }
 
-/**
- * Runs one judgement and resolves it against the config. Model and network
- * problems become `onError`; a caller abort still propagates.
- */
 export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOutcome> {
 	const { config, backend, input } = options;
 

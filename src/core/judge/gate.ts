@@ -1,8 +1,3 @@
-/**
- * The pipeline step: decides whether the judge applies to this call, builds its
- * input from the session, and memoizes a clean verdict. Everything here is about
- * turning live `ExtensionContext` state into the pure `judgeToolCall` contract.
- */
 import { createHash } from "node:crypto";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -21,14 +16,14 @@ export interface JudgeGateOptions {
 	target: CallDescriptor;
 	rawInput: unknown;
 	cache: Map<string, JudgeOutcome>;
-	/** Reports judge progress, so the caller owns the status namespace. */
+
 	onStatus: (status: string | undefined) => void;
 }
 
 export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome | undefined> {
 	const { config, ctx, toolName, target } = options;
 	if (!isJudged(config, toolName)) return undefined;
-	// Without a UI the judge only runs when the operator opted into headless judging.
+
 	if (!ctx.hasUI && !config.judge.headless) return undefined;
 
 	const input: JudgeInput = {
@@ -61,7 +56,6 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 		options.onStatus(undefined);
 	}
 
-	// Cache only a clean verdict; a timeout or network error deserves another try.
 	if (config.judge.cache && outcome.record && outcome.record.error === undefined) {
 		options.cache.set(key, outcome);
 	}
@@ -69,7 +63,6 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 	return outcome;
 }
 
-/** The verdict also depends on the request it was judged against, so hash that in. */
 function cacheKey(config: PermissionConfig, input: JudgeInput): string {
 	const request = input.lastUserMessage ?? "";
 	const requestHash = createHash("sha1").update(request).digest("hex").slice(0, 16);

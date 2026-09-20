@@ -1,13 +1,8 @@
-/**
- * Judge reporting: the session audit trail and the plain-text summaries behind
- * `/perm judge log`. Kept out of the event wiring and the settings UI.
- */
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { JudgeRecord } from "#core/judge/types.ts";
 import { NAME } from "#identity";
 
-/** How many decisions the session keeps for `/perm judge log`. */
 export const JUDGE_LOG_LIMIT = 50;
 
 export function remember(record: JudgeRecord | undefined, log: JudgeRecord[]): void {
@@ -17,7 +12,6 @@ export function remember(record: JudgeRecord | undefined, log: JudgeRecord[]): v
 	if (log.length > JUDGE_LOG_LIMIT) log.shift();
 }
 
-/** Warns once per error code, so a dead network does not spam every call. */
 export function warnOnce(ctx: ExtensionContext, warned: Set<string>, record: JudgeRecord): void {
 	const code = record.error ?? "error";
 	if (warned.has(code)) return;
@@ -44,14 +38,12 @@ function judgeDetail(record: JudgeRecord): string {
 	return `${record.model} \u00b7 ${record.elapsedMs}ms${risk}`;
 }
 
-/** `would allow`, `deny`, `ask you` \u2014 the verb a reader expects. */
 export function judgeActionLabel(record: JudgeRecord): string {
 	if (record.action === "allow") return record.dryRun ? "would allow" : "allow";
 	if (record.action === "deny") return record.dryRun ? "would deny" : "deny";
 	return "ask you";
 }
 
-/** One line: what the judge said, how sure it was, and how it went. */
 export function judgeVerdictText(record: JudgeRecord): string {
 	const parts = [judgeActionLabel(record)];
 
@@ -64,7 +56,6 @@ export function judgeVerdictText(record: JudgeRecord): string {
 	return parts.join(" \u00b7 ");
 }
 
-/** The signals behind the verdict, in a stable order. */
 export function judgeSignalText(record: JudgeRecord): string {
 	const answers = record.answers;
 	const parts: string[] = [];

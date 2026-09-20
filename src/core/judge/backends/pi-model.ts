@@ -1,10 +1,4 @@
 import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
-/**
- * The generic backend: judge with any model already configured in pi. Unlike
- * Jev, an LLM has to be asked for structured output in prose, so the contract is
- * strict and anything unparseable is treated as "no judgement" rather than an
- * approval.
- */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
 import { buildJudgeQuestions, buildJudgeState } from "#core/judge/request.ts";
@@ -18,7 +12,6 @@ import {
 import { describe, isRecord } from "#util/primitives.ts";
 
 export interface PiBackendOptions {
-	/** `provider/modelId`, or a bare model id when it is unambiguous. */
 	model: string;
 	timeoutMs: number;
 	modelRegistry: ModelRegistry;
@@ -127,7 +120,6 @@ export function buildPrompt(input: JudgeInput): string {
 	].join("\n");
 }
 
-/** Pulls the first JSON object out of a model reply, tolerating prose around it. */
 export function parseJudgeJson(text: string): Record<string, unknown> | undefined {
 	const start = text.indexOf("{");
 	const end = text.lastIndexOf("}");

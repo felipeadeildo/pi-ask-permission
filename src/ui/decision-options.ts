@@ -1,5 +1,3 @@
-/** The three answers a dialog offers, and the flat rows for UIs without Tab. */
-
 export interface Choice {
 	key: string;
 	decision: "allow" | "deny";

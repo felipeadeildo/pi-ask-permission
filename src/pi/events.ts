@@ -46,8 +46,6 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		const target = deriveTarget(toolName, event.input);
 		if (isGranted(state, toolName, target.grantLevels)) return undefined;
 
-		// `allow` already covers the read-only file tools, so a bash command that
-		// only reads skips the dialog too.
 		if (
 			config.readOnlyBash &&
 			isToolCallEventType("bash", event) &&
@@ -67,7 +65,6 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 
 		if (!ctx.hasUI) return headlessRefusal(config, toolName);
 
-		// An edit that cannot apply fails either way, so block it instead of asking.
 		if (isToolCallEventType("edit", event)) {
 			const failure = await editFailure(ctx, event.input);
 			if (failure) return { block: true, reason: failure };
@@ -103,7 +100,6 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		return undefined;
 	});
 
-	// "result" appends the note to the tool output the model is already reading.
 	pi.on("tool_result", (event) => {
 		const note = state.pendingNotes.get(event.toolCallId);
 		if (!note) return undefined;
@@ -176,7 +172,6 @@ async function runJudge(
 		return { allow: true };
 	}
 
-	// The dialog is about to open, so say what the judge would have done.
 	if (state.config.judge.dryRun && !record.error) {
 		ctx.ui.notify(`${NAME}: judge (dry run) ${judgeVerdictText(record)}`, "info");
 	}

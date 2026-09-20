@@ -8,12 +8,6 @@ import {
 	type JudgeInput,
 	type JudgeUsage,
 } from "#core/judge/types.ts";
-/**
- * The TypeSafe (Jev) backend. Jev is not a chat model: it evaluates a state
- * against typed questions and returns probabilities and confidence. The
- * extension registers an auth-only `typesafe` provider so `/login typesafe`
- * stores the key through pi, and calls the System One endpoint directly.
- */
 import { describe, isRecord } from "#util/primitives.ts";
 
 export const TYPESAFE_PROVIDER = "typesafe";
@@ -25,15 +19,13 @@ const BASE_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 4000;
 
 export interface JevBackendOptions {
-	/** A Jev model id or alias, such as `jev-latest` or a pinned `jev-1.13.0`. */
 	model: string;
 	timeoutMs: number;
-	/** Resolved per call, so `/login` and runtime key changes take effect. */
+
 	resolveApiKey: () => Promise<string | undefined>;
 	fetchImpl?: JudgeFetch;
 }
 
-/** The slice of `fetch` this client needs, so tests can pass a plain function. */
 export type JudgeFetch = (
 	url: string,
 	init: { method: string; headers: Record<string, string>; body: string; signal: AbortSignal },
@@ -87,8 +79,7 @@ async function send(
 	timeoutMs: number,
 	signal: AbortSignal,
 ): Promise<Response> {
-	// `timeoutMs` is the budget for the whole call, retries and backoff included,
-	// so a slow backoff can never be mistaken for a slow server.
+	// Bounds the whole call, retries and backoff included.
 	const deadline = Date.now() + timeoutMs;
 	let retryable: Response | undefined;
 
@@ -109,7 +100,6 @@ async function send(
 				signal: requestSignal,
 			});
 		} catch (error) {
-			// The caller aborted: let it through so the pipeline can stop too.
 			if (signal.aborted) throw error;
 			if (error instanceof JudgeError) throw error;
 			if (isAbort(error, "AbortError")) throw new JudgeError("cancelled", "cancelled");
@@ -128,7 +118,6 @@ async function send(
 		await sleep(delay, signal);
 	}
 
-	// A rate limit we could not outlast is reported as itself, not as a timeout.
 	if (retryable) return retryable;
 
 	throw new JudgeError(
@@ -137,7 +126,6 @@ async function send(
 	);
 }
 
-/** `retry-after` wins when present; otherwise exponential backoff, both capped. */
 function backoff(response: Response, attempt: number): number {
 	const header = response.headers.get("retry-after");
 	const seconds = header === null ? Number.NaN : Number(header);
@@ -186,7 +174,6 @@ export function parseJevResponse(
 	};
 }
 
-/** Maps System One answers onto the signals `compose.ts` reads. */
 export function toAnswers(raw: Record<string, unknown>): JudgeAnswers {
 	return {
 		verdict: toVerdict(raw.verdict),

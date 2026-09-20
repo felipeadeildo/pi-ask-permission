@@ -1,13 +1,3 @@
-/**
- * Reports whether a bash command only reads. Strict on purpose: a redirection,
- * substitution, subshell, assignment, or command that can write or execute
- * means "ask the user". Multi-line input always asks, because the tokenizer
- * folds newlines into whitespace.
- *
- * Names are matched as written. Nothing here resolves `PATH`, but a name
- * shadowed by an exported shell function is refused, and `BASH_ENV` disables
- * the check, since that file can define functions.
- */
 import { parse, type ParseEntry } from "shell-quote";
 
 const SEPARATORS = new Set(["&&", "||", ";", "|", "&"]);
@@ -68,7 +58,6 @@ const GIT_EXEC_FLAGS = [
 	"--use-textconv",
 ];
 
-/** Commands that only read, whatever the arguments are. */
 const READ_ONLY = new Set([
 	"cat",
 	"head",
@@ -138,12 +127,10 @@ const READ_ONLY = new Set([
 	"[",
 ]);
 
-/** Rejects `sort -o`, `tree -o`, and their combined short forms. */
 function hasNoOutputFlag(args: string[]): boolean {
 	return !args.some(isOutputFlag);
 }
 
-/** Commands whose arguments decide: each returns true when the call can only read. */
 const ARG_CHECKS: Record<string, (args: string[]) => boolean> = {
 	rg: (args) => !args.some((arg) => isOneOf(arg, ["--pre", "--hostname-bin"])),
 	find: (args) => !args.some((arg) => isOneOf(arg, FIND_ACTIONS)),
@@ -157,7 +144,7 @@ const ARG_CHECKS: Record<string, (args: string[]) => boolean> = {
 	git: safeGit,
 };
 
-/** Every segment must be a known read-only command, with no leading assignment. */
+// A classifier, not a sandbox: names are matched as written.
 export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = process.env): boolean {
 	if (/[\r\n]/.test(command)) return false;
 	if (env.BASH_ENV) return false;

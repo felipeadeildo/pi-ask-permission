@@ -2,7 +2,6 @@ import type { HeadlessMode, PermissionConfig } from "#core/config/schema.ts";
 
 const patternCache = new Map<string, RegExp>();
 
-/** `*` matches any run of characters, `?` exactly one. */
 export function matchesPattern(pattern: string, value: string): boolean {
 	if (pattern === "*") return true;
 
@@ -28,7 +27,6 @@ export function isJudged(config: PermissionConfig, toolName: string): boolean {
 	);
 }
 
-/** Exact name beats a wildcard, a wildcard beats `*`, ties go to the later entry. */
 export function headlessMode(config: PermissionConfig, toolName: string): HeadlessMode {
 	if (typeof config.headless === "string") return config.headless;
 

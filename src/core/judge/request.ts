@@ -1,13 +1,7 @@
-/**
- * The request a judge sees: one structured `state` and a fixed battery of
- * atomic questions. Keeping the questions fixed is what makes answers
- * comparable across calls, and lets `compose.ts` combine them in code.
- */
 import { basename } from "node:path";
 
 import type { JudgeInput } from "#core/judge/types.ts";
 
-/** Tool arguments are capped so one call can never crowd out the policy. */
 const MAX_INPUT_CHARS = 8000;
 const MAX_REQUEST_CHARS = 2000;
 
@@ -111,7 +105,6 @@ export function buildJudgeQuestions(input: JudgeInput): Record<string, unknown> 
 	};
 }
 
-/** A JSON-friendly view of the tool arguments, or a capped string when they are not. */
 export function describeInput(raw: unknown): string {
 	if (raw === undefined || raw === null) return "(none)";
 	if (typeof raw === "string") return truncate(raw, MAX_INPUT_CHARS);

@@ -1,10 +1,4 @@
-/**
- * Small, composable decoders for data that arrives as `unknown`: the config
- * file, the grants file, and model responses. Every decoder is total — it
- * either produces a value or a list of problems, and never throws. This is the
- * only module that inspects `typeof`; everything else works with typed values.
- */
-
+// The only module that inspects `typeof`.
 export interface Problem {
 	path: string;
 	message: string;
@@ -34,7 +28,6 @@ export function fieldPath(path: string, key: string): string {
 	return path === "" ? key : `${path}.${key}`;
 }
 
-/** `["path.line", "message"]`, the shape every warning in this project uses. */
 export function formatProblems(problems: Problem[]): string[] {
 	return problems.map((entry) => `${entry.path}: ${entry.message}`);
 }
@@ -98,11 +91,6 @@ export function nullable<T>(inner: Decoder<T>): Decoder<T | null> {
 	};
 }
 
-/**
- * A missing value is fine and uses the fallback silently. A present but invalid
- * value also uses the fallback, but reports why — a typo never weakens a guard
- * without a word.
- */
 export function withDefaultOf<T>(inner: Decoder<T>, fallback: () => T): Decoder<T> {
 	return {
 		decode(input, path) {
@@ -117,10 +105,6 @@ export function withDefault<T>(inner: Decoder<T>, fallback: T): Decoder<T> {
 	return withDefaultOf(inner, () => fallback);
 }
 
-/**
- * Non-empty strings, dropping anything else. The whole list is reported once,
- * so a sloppy array is one warning rather than one per bad entry.
- */
 export function stringList(expected: string): Decoder<string[]> {
 	const notAList = `expected an array of ${expected}`;
 	const dropped = "ignored entries that are not non-empty strings";
@@ -142,7 +126,6 @@ export function stringList(expected: string): Decoder<string[]> {
 	};
 }
 
-/** Missing uses the fallback. Present but unusable narrows to nothing. */
 export function stringListOrEmpty(
 	fallback: readonly string[],
 	expected: string,

@@ -1,8 +1,3 @@
-/**
- * The judge's decision, rendered inline in the transcript. Custom entries do
- * not reach the model, so this is a pure audit view: what the judge said, how
- * sure it was, and the signals behind it.
- */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 
@@ -38,10 +33,6 @@ export function appendJudgeEntry(pi: ExtensionAPI, record: JudgeRecord): void {
 	pi.appendEntry(JUDGE_ENTRY, record);
 }
 
-/**
- * A verdict worth a line in the transcript: anything the user did not see a
- * dialog for. A quiet approval in normal mode stays only in `/perm judge log`.
- */
 export function judgeEntryWorthShowing(record: JudgeRecord): boolean {
 	return record.dryRun === true || record.action !== "allow";
 }

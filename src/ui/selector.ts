@@ -5,7 +5,6 @@ import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
 import type { CallDescriptor } from "#core/target.ts";
 import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
 
-/** Fallback for RPC and any other UI that cannot host a custom component. */
 export async function askViaSelector(
 	ctx: ExtensionContext,
 	toolName: string,

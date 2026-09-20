@@ -8,7 +8,7 @@ import type { JudgeBackend } from "#core/judge/types.ts";
 export interface JudgeDeps {
 	resolveApiKey: () => Promise<string | undefined>;
 	modelRegistry: ModelRegistry;
-	/** Tests inject one; production uses the global `fetch`. */
+
 	fetchImpl?: JudgeFetch;
 }
 

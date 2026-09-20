@@ -16,7 +16,6 @@ interface ClipboardReader {
 
 let loaded: Promise<ClipboardReader | null> | undefined;
 
-/** pi does not export its clipboard reader, so reach into its dist. Null if that ever moves. */
 function loadClipboard(): Promise<ClipboardReader | null> {
 	loaded ??= (async () => {
 		try {
@@ -36,7 +35,6 @@ function loadClipboard(): Promise<ClipboardReader | null> {
 	return loaded;
 }
 
-/** A clipboard image comes back as its temp file path, anything else as text. */
 export async function readClipboard(): Promise<string | null> {
 	const clipboard = await loadClipboard();
 	if (!clipboard) return null;
