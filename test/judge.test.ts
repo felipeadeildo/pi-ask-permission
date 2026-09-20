@@ -15,7 +15,7 @@ import {
 	POLICY_TEMPLATE,
 	policyWarning,
 } from "../src/judge/policy.ts";
-import { judgeLogText } from "../src/judge/report.ts";
+import { judgeLogText, judgeSignalText, judgeVerdictText } from "../src/judge/report.ts";
 import { buildJudgeQuestions, buildJudgeState } from "../src/judge/state.ts";
 import {
 	JudgeError,
@@ -268,6 +268,20 @@ describe("createJevBackend", () => {
 
 		await backend.assess(judgeInput(), new AbortController().signal);
 		expect(calls).toBe(2);
+	});
+
+	test("a rate limit it cannot outlast is reported as 429, not a timeout", async () => {
+		const backend = createJevBackend({
+			model: "jev-latest",
+			timeoutMs: 100,
+			resolveApiKey: async () => "key",
+			fetchImpl: async () =>
+				new Response("slow down", { status: 429, headers: { "retry-after": "5" } }),
+		});
+
+		await expect(backend.assess(judgeInput(), new AbortController().signal)).rejects.toMatchObject({
+			code: "http-429",
+		});
 	});
 
 	test("reports an HTTP failure", async () => {
@@ -565,6 +579,36 @@ describe("judge report", () => {
 	test("marks the would-be action of a dry run", () => {
 		const text = judgeLogText([{ ...base, dryRun: true, action: "deny" }]);
 		expect(text).toContain("would deny");
+	});
+
+	test("describes a verdict with confidence, risk, model, and timing", () => {
+		const record: JudgeRecord = {
+			...base,
+			dryRun: true,
+			risk: 0.12,
+			elapsedMs: 312,
+			answers: { verdict: { choice: "allow", confidence: 0.94 } },
+		};
+
+		expect(judgeVerdictText(record)).toBe(
+			"would allow \u00b7 94% confident \u00b7 risk 0.12 \u00b7 jev-1.13.0 \u00b7 312ms",
+		);
+	});
+
+	test("lists the signals behind the verdict", () => {
+		const record: JudgeRecord = {
+			...base,
+			answers: {
+				intent_match: 0.9,
+				reversibility: 0.2,
+				sensitive_access: 0,
+				outside_workspace: 0.1,
+			},
+		};
+
+		expect(judgeSignalText(record)).toBe(
+			"intent 0.90 \u00b7 reversibility 0.20 \u00b7 sensitive 0.00 \u00b7 outside 0.10",
+		);
 	});
 });
 

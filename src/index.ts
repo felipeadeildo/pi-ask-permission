@@ -30,6 +30,7 @@ import {
 	loadGrants,
 	saveGrants,
 } from "./grants.ts";
+import { appendJudgeEntry, judgeEntryWorthShowing, registerJudgeEntry } from "./judge/entry.ts";
 import { judgeGate } from "./judge/gate.ts";
 import {
 	type JudgeOutcome,
@@ -38,7 +39,7 @@ import {
 	TYPESAFE_BASE_URL,
 	TYPESAFE_PROVIDER,
 } from "./judge/index.ts";
-import { judgeLogText, remember, warnOnce } from "./judge/report.ts";
+import { judgeLogText, judgeVerdictText, remember, warnOnce } from "./judge/report.ts";
 import { NAME } from "./name.ts";
 import type { AskDecision } from "./options.ts";
 import { editFailure } from "./preflight.ts";
@@ -50,8 +51,9 @@ import { TypingMonitor } from "./typing.ts";
 
 const JUDGE_STATUS = `${NAME}:judge`;
 const TYPING_STATUS = "waiting for you to finish typing";
-/** Consecutive judge failures before the session stops trying. */
+/** Consecutive judge failures before the judge pauses for a cooldown. */
 const JUDGE_FAILURE_LIMIT = 2;
+const JUDGE_RETRY_MS = 60_000;
 
 type PersistedScope = Exclude<GrantScope, "session">;
 
@@ -62,6 +64,7 @@ function grantPath(scope: PersistedScope, cwd: string): string {
 export default function piAskPermission(pi: ExtensionAPI) {
 	registerBashTimer(pi);
 	registerTypesafeProvider(pi);
+	registerJudgeEntry(pi);
 
 	const loaded = loadConfig();
 	const config = loaded.config;
@@ -79,7 +82,7 @@ export default function piAskPermission(pi: ExtensionAPI) {
 	const judgeLog: JudgeRecord[] = [];
 	const judgeWarned = new Set<string>();
 	/** Trips after repeated failures so a blocked network does not stall every call. */
-	const judgeHealth: JudgeHealth = { failures: 0, paused: false };
+	const judgeHealth: JudgeHealth = { failures: 0, retryAt: 0 };
 
 	const typing = new TypingMonitor(config.typing.pause, config.typing.maxWait);
 
@@ -173,6 +176,7 @@ export default function piAskPermission(pi: ExtensionAPI) {
 		}
 
 		const resolution = await runJudge({
+			pi,
 			config,
 			ctx,
 			toolName,
@@ -283,7 +287,7 @@ export default function piAskPermission(pi: ExtensionAPI) {
 			judgeCache.clear();
 			if (argument === "on") {
 				judgeHealth.failures = 0;
-				judgeHealth.paused = false;
+				judgeHealth.retryAt = 0;
 			}
 			ctx.ui.notify(`${NAME}: AI approvals ${argument}`, "info");
 			return;
@@ -323,7 +327,7 @@ export default function piAskPermission(pi: ExtensionAPI) {
 		}
 
 		judgeHealth.failures = 0;
-		judgeHealth.paused = false;
+		judgeHealth.retryAt = 0;
 
 		const summary = `judge test ok \u00b7 ${probe.model ?? config.judge.model} \u00b7 ${probe.elapsedMs}ms`;
 		if (probe.elapsedMs > config.judge.timeoutMs) {
@@ -349,6 +353,7 @@ function registerTypesafeProvider(pi: ExtensionAPI): void {
 }
 
 interface RunJudgeOptions {
+	pi: ExtensionAPI;
 	config: AskConfig;
 	ctx: ExtensionContext;
 	toolName: string;
@@ -363,7 +368,8 @@ interface RunJudgeOptions {
 
 interface JudgeHealth {
 	failures: number;
-	paused: boolean;
+	/** Epoch ms before which the judge stays paused. */
+	retryAt: number;
 }
 
 interface JudgeResolution {
@@ -373,7 +379,7 @@ interface JudgeResolution {
 
 async function runJudge(options: RunJudgeOptions): Promise<JudgeResolution | undefined> {
 	const { config, ctx, toolName, target } = options;
-	if (options.health.paused) return undefined;
+	if (Date.now() < options.health.retryAt) return undefined;
 
 	const outcome = await judgeGate({
 		config,
@@ -387,19 +393,24 @@ async function runJudge(options: RunJudgeOptions): Promise<JudgeResolution | und
 	if (!outcome) return undefined;
 
 	remember(outcome.record, options.log);
+	if (outcome.record && judgeEntryWorthShowing(outcome.record)) {
+		appendJudgeEntry(options.pi, outcome.record);
+	}
 
 	if (outcome.record?.error) {
 		warnOnce(ctx, options.warned, outcome.record);
 		options.health.failures++;
 		if (options.health.failures >= JUDGE_FAILURE_LIMIT) {
-			options.health.paused = true;
+			options.health.failures = 0;
+			options.health.retryAt = Date.now() + JUDGE_RETRY_MS;
 			ctx.ui.notify(
-				`${NAME}: judge paused for this session after repeated failures; run /perm judge test`,
+				`${NAME}: judge paused for ${JUDGE_RETRY_MS / 1000}s after repeated failures; run /perm judge test`,
 				"warning",
 			);
 		}
 	} else {
 		options.health.failures = 0;
+		options.health.retryAt = 0;
 	}
 
 	if (outcome.action === "deny") {
@@ -414,9 +425,9 @@ async function runJudge(options: RunJudgeOptions): Promise<JudgeResolution | und
 		return { allow: true };
 	}
 
-	if (outcome.record?.dryRun) {
-		const verdict = outcome.record.action === "allow" ? "allow" : "deny";
-		ctx.ui.notify(`${NAME}: judge (dry run) would ${verdict} ${toolName}`, "info");
+	// Dry run: the dialog is about to open, so say what the judge would have done.
+	if (config.judge.dryRun && outcome.record && !outcome.record.error) {
+		ctx.ui.notify(`${NAME}: judge (dry run) ${judgeVerdictText(outcome.record)}`, "info");
 	}
 
 	return undefined;

@@ -87,37 +87,54 @@ async function send(
 	timeoutMs: number,
 	signal: AbortSignal,
 ): Promise<Response> {
-	for (let attempt = 1; ; attempt++) {
-		const timeout = AbortSignal.timeout(timeoutMs);
+	// `timeoutMs` is the budget for the whole call, retries and backoff included,
+	// so a slow backoff can never be mistaken for a slow server.
+	const deadline = Date.now() + timeoutMs;
+	let retryable: Response | undefined;
+
+	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+		const remaining = deadline - Date.now();
+		if (remaining <= 0) break;
+
+		const timeout = AbortSignal.timeout(remaining);
 		const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
 
+		let response: Response;
 		try {
 			// oxlint-disable-next-line no-await-in-loop -- a retry must wait for the previous attempt.
-			const response = await fetchImpl(ENDPOINT, {
+			response = await fetchImpl(ENDPOINT, {
 				method: "POST",
 				headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
 				body,
 				signal: requestSignal,
 			});
-
-			if (response.status !== 429 && response.status !== 529) return response;
-			if (attempt >= MAX_ATTEMPTS) return response;
-
-			// oxlint-disable-next-line no-await-in-loop -- backoff is deliberately serial.
-			await sleep(backoff(response, attempt), requestSignal);
 		} catch (error) {
 			// The caller aborted: let it through so the pipeline can stop too.
 			if (signal.aborted) throw error;
 			if (error instanceof JudgeError) throw error;
 			if (isAbort(error, "AbortError")) throw new JudgeError("cancelled", "cancelled");
-			if (isAbort(error, "TimeoutError"))
-				throw new JudgeError(
-					`no response from ${ENDPOINT} within ${timeoutMs}ms (check the network or proxy, or raise judge.timeoutMs)`,
-					"timeout",
-				);
+			if (isAbort(error, "TimeoutError")) break;
 			throw new JudgeError(describe(error), "network");
 		}
+
+		if (response.status !== 429 && response.status !== 529) return response;
+		retryable = response;
+
+		if (attempt >= MAX_ATTEMPTS) break;
+		const delay = Math.min(backoff(response, attempt), deadline - Date.now());
+		if (delay < 0) break;
+
+		// oxlint-disable-next-line no-await-in-loop -- backoff is deliberately serial.
+		await sleep(delay, signal);
 	}
+
+	// A rate limit we could not outlast is reported as itself, not as a timeout.
+	if (retryable) return retryable;
+
+	throw new JudgeError(
+		`no response from ${ENDPOINT} within ${timeoutMs}ms (check the network or proxy, or raise judge.timeoutMs)`,
+		"timeout",
+	);
 }
 
 /** `retry-after` wins when present; otherwise exponential backoff, both capped. */
