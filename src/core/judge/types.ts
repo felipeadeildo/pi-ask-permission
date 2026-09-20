@@ -60,7 +60,7 @@ export interface JudgeRecord extends JudgeAssessment {
 export interface JudgeOutcome {
 	action: JudgeAction;
 	reason: string;
-	record?: JudgeRecord;
+	record: JudgeRecord;
 }
 
 export class JudgeError extends Error {

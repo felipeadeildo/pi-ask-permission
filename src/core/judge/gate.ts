@@ -2,7 +2,9 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { isJudged } from "#core/config/patterns.ts";
 import type { PermissionConfig } from "#core/config/schema.ts";
-import { createJudgeBackend, judgeToolCall, TYPESAFE_PROVIDER } from "#core/judge/index.ts";
+import { createJudgeBackend } from "#core/judge/backends/factory.ts";
+import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
+import { judgeToolCall } from "#core/judge/pipeline.ts";
 import type { JudgeInput, JudgeOutcome } from "#core/judge/types.ts";
 import type { CallDescriptor } from "#core/target.ts";
 

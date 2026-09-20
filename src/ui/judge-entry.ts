@@ -5,7 +5,7 @@ import { flatten, judgeActionLabel, judgeSignalText, judgeStatText } from "#core
 import type { JudgeRecord } from "#core/judge/types.ts";
 import { NAME } from "#identity";
 
-export const JUDGE_ENTRY = `${NAME}:judge`;
+const JUDGE_ENTRY = `${NAME}:judge`;
 
 const ACTION_COLUMN = 13;
 const TOOL_COLUMN = 6;
@@ -55,8 +55,8 @@ class JudgeEntry implements Component {
 	/** Stats hug the right edge, so the target uses whatever room is left. */
 	private row(record: JudgeRecord, width: number): string {
 		const tone = toneFor(record);
-		const action = pad(judgeActionLabel(record), ACTION_COLUMN);
-		const tool = pad(record.toolName, TOOL_COLUMN);
+		const action = judgeActionLabel(record).padEnd(ACTION_COLUMN);
+		const tool = record.toolName.padEnd(TOOL_COLUMN);
 		const stats = judgeStatText(record);
 
 		const head = `  \u25c8 ${action}${tool}`;
@@ -76,10 +76,6 @@ class JudgeEntry implements Component {
 			this.theme.fg("dim", stats)
 		);
 	}
-}
-
-function pad(text: string, width: number): string {
-	return text.length >= width ? text : text + " ".repeat(width - text.length);
 }
 
 function toneFor(record: JudgeRecord): "success" | "error" | "warning" {

@@ -1,7 +1,8 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
-import { probeJudge, TYPESAFE_PROVIDER } from "#core/judge/index.ts";
+import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
+import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText } from "#core/judge/report.ts";
 import { NAME } from "#identity";
 import { forgetGrants, resetJudgeHealth, saveConfigFile, type SessionState } from "#pi/session.ts";

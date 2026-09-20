@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import { TYPESAFE_BASE_URL, TYPESAFE_PROVIDER } from "#core/judge/index.ts";
+import { TYPESAFE_BASE_URL, TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
 
 export function registerTypesafeProvider(pi: ExtensionAPI): void {
 	pi.registerProvider(TYPESAFE_PROVIDER, {

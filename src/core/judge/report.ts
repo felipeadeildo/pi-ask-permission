@@ -3,11 +3,9 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { JudgeRecord } from "#core/judge/types.ts";
 import { NAME } from "#identity";
 
-export const JUDGE_LOG_LIMIT = 50;
+const JUDGE_LOG_LIMIT = 50;
 
-export function remember(record: JudgeRecord | undefined, log: JudgeRecord[]): void {
-	if (!record) return;
-
+export function remember(record: JudgeRecord, log: JudgeRecord[]): void {
 	log.push(record);
 	if (log.length > JUDGE_LOG_LIMIT) log.shift();
 }
@@ -27,14 +25,8 @@ export function judgeLogText(log: JudgeRecord[], limit = 10): string {
 	return [`${NAME}: ${log.length} judge decisions, newest first`, ...lines].join("\n");
 }
 
-export function describeJudgeRecord(record: JudgeRecord): string {
-	return `\u00b7 ${judgeActionLabel(record)} ${record.toolName}: ${oneLine(record.summary)}, ${record.reason} (${judgeDetail(record)})`;
-}
-
-function judgeDetail(record: JudgeRecord): string {
-	if (record.error) return `error ${record.error} \u00b7 ${record.elapsedMs}ms`;
-	const risk = record.risk === undefined ? "" : ` \u00b7 risk ${record.risk.toFixed(2)}`;
-	return `${record.model} \u00b7 ${record.elapsedMs}ms${risk}`;
+function describeJudgeRecord(record: JudgeRecord): string {
+	return `\u00b7 ${judgeActionLabel(record)} ${record.toolName}: ${oneLine(record.summary)}, ${record.reason} (${judgeStatText(record)} \u00b7 ${record.model})`;
 }
 
 export function judgeActionLabel(record: JudgeRecord): string {
@@ -77,7 +69,7 @@ export function flatten(text: string): string {
 	return text.replace(/\s+/g, " ").trim();
 }
 
-export function oneLine(text: string, max = 60): string {
+function oneLine(text: string, max = 60): string {
 	const flat = flatten(text);
 	return flat.length > max ? `${flat.slice(0, max - 3)}...` : flat;
 }

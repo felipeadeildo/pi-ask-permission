@@ -8,13 +8,14 @@ import { parseJudgeJson, toAnswersFromJson } from "#core/judge/backends/pi-model
 import { composeVerdict, judgeRisk, neverMatches, RISK_WEIGHTS } from "#core/judge/compose.ts";
 import { defaultJudge, type JudgeConfig } from "#core/judge/config.ts";
 import { judgeGate } from "#core/judge/gate.ts";
-import { judgeToolCall, probeJudge } from "#core/judge/index.ts";
+import { judgeToolCall } from "#core/judge/pipeline.ts";
 import {
 	detectPolicyPreset,
 	POLICY_PRESETS,
 	POLICY_TEMPLATE,
 	policyWarning,
 } from "#core/judge/policy.ts";
+import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText, judgeSignalText, judgeVerdictText } from "#core/judge/report.ts";
 import { buildJudgeQuestions, buildJudgeState } from "#core/judge/request.ts";
 import {

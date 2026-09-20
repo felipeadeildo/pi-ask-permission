@@ -11,9 +11,12 @@ import {
 	loadGrants,
 	saveGrants,
 } from "#core/grants.ts";
-import type { JudgeOutcome, JudgeRecord } from "#core/judge/index.ts";
+import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
 import { NAME } from "#identity";
 import { TypingMonitor } from "#ui/typing.ts";
+
+const JUDGE_FAILURE_LIMIT = 2;
+const JUDGE_RETRY_MS = 60_000;
 
 export interface JudgeHealth {
 	failures: number;
@@ -57,6 +60,19 @@ export function createSession(): SessionState {
 export function resetJudgeHealth(state: SessionState): void {
 	state.judgeHealth.failures = 0;
 	state.judgeHealth.retryAt = 0;
+}
+
+/** Counts a failure and pauses the judge once failures pile up. */
+export function noteJudgeFailure(state: SessionState, ctx: ExtensionContext): void {
+	state.judgeHealth.failures++;
+	if (state.judgeHealth.failures < JUDGE_FAILURE_LIMIT) return;
+
+	state.judgeHealth.failures = 0;
+	state.judgeHealth.retryAt = Date.now() + JUDGE_RETRY_MS;
+	ctx.ui.notify(
+		`${NAME}: judge paused for ${JUDGE_RETRY_MS / 1000}s after repeated failures; run /perm judge test`,
+		"warning",
+	);
 }
 
 type PersistedScope = Exclude<GrantScope, "session">;

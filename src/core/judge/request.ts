@@ -70,7 +70,7 @@ export function buildJudgeQuestions(): Record<string, unknown> {
 	};
 }
 
-export function describeInput(raw: unknown): string {
+function describeInput(raw: unknown): string {
 	if (raw === undefined || raw === null) return "(none)";
 	if (typeof raw === "string") return truncate(raw, MAX_INPUT_CHARS);
 

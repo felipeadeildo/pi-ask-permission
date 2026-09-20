@@ -15,7 +15,14 @@ import type { CallDescriptor } from "#core/target.ts";
 import { deriveTarget } from "#core/target.ts";
 import { NAME } from "#identity";
 import { editFailure } from "#pi/preflight.ts";
-import { isGranted, loadGrantScopes, persistGrants, type SessionState } from "#pi/session.ts";
+import {
+	isGranted,
+	loadGrantScopes,
+	noteJudgeFailure,
+	persistGrants,
+	resetJudgeHealth,
+	type SessionState,
+} from "#pi/session.ts";
 import { AskDialog } from "#ui/dialog.ts";
 import { appendJudgeEntry } from "#ui/judge-entry.ts";
 import { askViaSelector } from "#ui/selector.ts";
@@ -23,8 +30,6 @@ import { notifyJudgePolicyWarning } from "#ui/settings/status.ts";
 
 const JUDGE_STATUS = `${NAME}:judge`;
 const TYPING_STATUS = "waiting for you to finish typing";
-const JUDGE_FAILURE_LIMIT = 2;
-const JUDGE_RETRY_MS = 60_000;
 
 export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 	pi.on("session_start", (_event, ctx) => {
@@ -146,7 +151,7 @@ async function runJudge(
 		cache: state.judgeCache,
 		onStatus: (status) => ctx.ui.setStatus(JUDGE_STATUS, status),
 	});
-	if (!outcome || !outcome.record) return undefined;
+	if (!outcome) return undefined;
 
 	const record = outcome.record;
 	remember(record, state.judgeLog);
@@ -154,18 +159,9 @@ async function runJudge(
 
 	if (record.error) {
 		warnOnce(ctx, state.judgeWarned, record);
-		state.judgeHealth.failures++;
-		if (state.judgeHealth.failures >= JUDGE_FAILURE_LIMIT) {
-			state.judgeHealth.failures = 0;
-			state.judgeHealth.retryAt = Date.now() + JUDGE_RETRY_MS;
-			ctx.ui.notify(
-				`${NAME}: judge paused for ${JUDGE_RETRY_MS / 1000}s after repeated failures; run /perm judge test`,
-				"warning",
-			);
-		}
+		noteJudgeFailure(state, ctx);
 	} else {
-		state.judgeHealth.failures = 0;
-		state.judgeHealth.retryAt = 0;
+		resetJudgeHealth(state);
 	}
 
 	if (outcome.action === "deny") {
