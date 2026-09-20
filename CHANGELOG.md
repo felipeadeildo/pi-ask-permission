@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/felipeadeildo/pi-ask-permission/compare/v1.0.0...v1.0.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* skip the generated changelog and allow a manual publish ([31f5478](https://github.com/felipeadeildo/pi-ask-permission/commit/31f5478868fd52130e19f01bbf4bbda58b14c7d7))
+
 ## 1.0.0 (2026-09-20)
 
 
