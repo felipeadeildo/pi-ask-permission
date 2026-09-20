@@ -6,9 +6,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 
-import { NAME } from "../identity.ts";
-import { judgeSignalText, judgeVerdictText, oneLine } from "./report.ts";
-import type { JudgeRecord } from "./types.ts";
+import { judgeSignalText, judgeVerdictText, oneLine } from "#core/judge/report.ts";
+import type { JudgeRecord } from "#core/judge/types.ts";
+import { NAME } from "#identity";
 
 export const JUDGE_ENTRY = `${NAME}:judge`;
 

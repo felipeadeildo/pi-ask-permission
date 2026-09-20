@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
-import { describe, isRecord } from "./util/primitives.ts";
+import { describe, isRecord } from "#util/primitives.ts";
 
 export type GrantScope = "session" | "project" | "global";
 

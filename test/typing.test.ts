@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { TypingMonitor } from "../src/typing.ts";
+import { TypingMonitor } from "#ui/typing.ts";
 
 function fakeCtx(mode = "tui") {
 	let handler: ((data: string) => void) | undefined;

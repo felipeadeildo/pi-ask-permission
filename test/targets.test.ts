@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { commandLevels, deriveTarget, pathLevels, shortenHome, tokenize } from "../src/targets.ts";
+import { commandLevels, deriveTarget, pathLevels, shortenHome, tokenize } from "#core/target.ts";
 
 describe("commandLevels", () => {
 	test("nests a command from head to exact", () => {

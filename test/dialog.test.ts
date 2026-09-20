@@ -3,10 +3,10 @@ import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, type KeybindingsManager, visibleWidth } from "@earendil-works/pi-tui";
 
-import { AskDialog } from "../src/dialog.ts";
-import type { GrantScope } from "../src/grants.ts";
-import { type AskDecision, FALLBACK_OPTIONS } from "../src/options.ts";
-import { deriveTarget } from "../src/targets.ts";
+import { type AskDecision, FALLBACK_OPTIONS } from "#core/decision.ts";
+import type { GrantScope } from "#core/grants.ts";
+import { deriveTarget } from "#core/target.ts";
+import { AskDialog } from "#ui/dialog.ts";
 
 /** Colour-free stand-in; only fg/bold are ever called by the dialog. */
 const theme = {

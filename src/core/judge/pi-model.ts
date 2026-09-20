@@ -7,15 +7,15 @@ import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
  */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
-import { describe, isRecord } from "../util/primitives.ts";
-import { buildJudgeQuestions, buildJudgeState } from "./state.ts";
+import { buildJudgeQuestions, buildJudgeState } from "#core/judge/state.ts";
 import {
 	JudgeError,
 	type JudgeAnswers,
 	type JudgeBackend,
 	type JudgeChoiceAnswer,
 	type JudgeInput,
-} from "./types.ts";
+} from "#core/judge/types.ts";
+import { describe, isRecord } from "#util/primitives.ts";
 
 export interface PiBackendOptions {
 	/** `provider/modelId`, or a bare model id when it is unambiguous. */

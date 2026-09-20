@@ -15,9 +15,10 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
-import { readClipboard } from "./clipboard.ts";
-import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "./grants.ts";
-import { type AskDecision, BASE_OPTIONS, type DecisionOption } from "./options.ts";
+import { type AskDecision, BASE_OPTIONS, type DecisionOption } from "#core/decision.ts";
+import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
+import type { CallTarget } from "#core/target.ts";
+import { readClipboard } from "#ui/clipboard.ts";
 import {
 	cleanPaste,
 	expandPastes,
@@ -25,8 +26,7 @@ import {
 	PASTE_START,
 	pasteMarker,
 	shouldCollapse,
-} from "./paste.ts";
-import type { CallTarget } from "./targets.ts";
+} from "#ui/paste.ts";
 
 type Phase = "menu" | "levels";
 

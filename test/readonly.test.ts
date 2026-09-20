@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { isReadOnlyCommand } from "../src/readonly.ts";
+import { isReadOnlyCommand } from "#core/readonly-bash.ts";
 
 /** Runs against an empty environment so the tests never depend on the machine. */
 function ro(command: string, env: NodeJS.ProcessEnv = {}): boolean {

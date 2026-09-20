@@ -7,20 +7,20 @@ import {
 	defaultJudge,
 	type JudgeConfig,
 	type PermissionConfig,
-} from "../src/core/config/schema.ts";
-import { composeVerdict, judgeRisk, neverMatches, RISK_WEIGHTS } from "../src/judge/compose.ts";
-import { judgeGate } from "../src/judge/gate.ts";
-import { judgeToolCall, probeJudge } from "../src/judge/index.ts";
-import { createJevBackend, parseJevResponse, toAnswers } from "../src/judge/jev.ts";
-import { parseJudgeJson, toAnswersFromJson } from "../src/judge/pi-model.ts";
+} from "#core/config/schema.ts";
+import { composeVerdict, judgeRisk, neverMatches, RISK_WEIGHTS } from "#core/judge/compose.ts";
+import { judgeGate } from "#core/judge/gate.ts";
+import { judgeToolCall, probeJudge } from "#core/judge/index.ts";
+import { createJevBackend, parseJevResponse, toAnswers } from "#core/judge/jev.ts";
+import { parseJudgeJson, toAnswersFromJson } from "#core/judge/pi-model.ts";
 import {
 	detectPolicyPreset,
 	POLICY_PRESETS,
 	POLICY_TEMPLATE,
 	policyWarning,
-} from "../src/judge/policy.ts";
-import { judgeLogText, judgeSignalText, judgeVerdictText } from "../src/judge/report.ts";
-import { buildJudgeQuestions, buildJudgeState } from "../src/judge/state.ts";
+} from "#core/judge/policy.ts";
+import { judgeLogText, judgeSignalText, judgeVerdictText } from "#core/judge/report.ts";
+import { buildJudgeQuestions, buildJudgeState } from "#core/judge/state.ts";
 import {
 	JudgeError,
 	type JudgeAnswers,
@@ -28,7 +28,7 @@ import {
 	type JudgeBackend,
 	type JudgeInput,
 	type JudgeRecord,
-} from "../src/judge/types.ts";
+} from "#core/judge/types.ts";
 
 function answers(overrides: Partial<JudgeAnswers> = {}): JudgeAnswers {
 	return {

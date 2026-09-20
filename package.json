@@ -30,6 +30,13 @@
 		"CHANGELOG.md"
 	],
 	"type": "module",
+	"imports": {
+		"#core/*": "./src/core/*",
+		"#identity": "./src/identity.ts",
+		"#pi/*": "./src/pi/*",
+		"#ui/*": "./src/ui/*",
+		"#util/*": "./src/util/*"
+	},
 	"publishConfig": {
 		"access": "public"
 	},

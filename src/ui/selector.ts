@@ -1,8 +1,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "./grants.ts";
-import { type AskDecision, FALLBACK_OPTIONS } from "./options.ts";
-import type { CallTarget } from "./targets.ts";
+import { type AskDecision, FALLBACK_OPTIONS } from "#core/decision.ts";
+import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
+import type { CallTarget } from "#core/target.ts";
 
 /** Fallback for RPC and any other UI that cannot host a custom component. */
 export async function askViaSelector(

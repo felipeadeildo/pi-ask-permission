@@ -5,11 +5,10 @@
  */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
-import type { JudgeConfig } from "../core/config/schema.ts";
-import { describe } from "../util/primitives.ts";
-import { composeVerdict, judgeRisk, neverMatches } from "./compose.ts";
-import { createJevBackend, type JudgeFetch } from "./jev.ts";
-import { createPiBackend } from "./pi-model.ts";
+import type { JudgeConfig } from "#core/config/schema.ts";
+import { composeVerdict, judgeRisk, neverMatches } from "#core/judge/compose.ts";
+import { createJevBackend, type JudgeFetch } from "#core/judge/jev.ts";
+import { createPiBackend } from "#core/judge/pi-model.ts";
 import {
 	JudgeError,
 	type JudgeAction,
@@ -17,12 +16,13 @@ import {
 	type JudgeInput,
 	type JudgeOutcome,
 	type JudgeRecord,
-} from "./types.ts";
+} from "#core/judge/types.ts";
+import { describe } from "#util/primitives.ts";
 
-export * from "./types.ts";
-export { judgeRisk, neverMatches } from "./compose.ts";
-export { createJevBackend, TYPESAFE_BASE_URL, TYPESAFE_PROVIDER } from "./jev.ts";
-export { createPiBackend, findModel } from "./pi-model.ts";
+export * from "#core/judge/types.ts";
+export { judgeRisk, neverMatches } from "#core/judge/compose.ts";
+export { createJevBackend, TYPESAFE_BASE_URL, TYPESAFE_PROVIDER } from "#core/judge/jev.ts";
+export { createPiBackend, findModel } from "#core/judge/pi-model.ts";
 export {
 	detectPolicyPreset,
 	getPolicyPreset,
@@ -31,8 +31,8 @@ export {
 	POLICY_TEMPLATE,
 	type PolicyPreset,
 	policyWarning,
-} from "./policy.ts";
-export { buildJudgeQuestions, buildJudgeState, describeInput } from "./state.ts";
+} from "#core/judge/policy.ts";
+export { buildJudgeQuestions, buildJudgeState, describeInput } from "#core/judge/state.ts";
 
 export interface JudgeDeps {
 	/** Resolved per call, so `/login` and runtime key changes take effect. */

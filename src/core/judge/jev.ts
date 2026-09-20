@@ -1,11 +1,4 @@
-/**
- * The TypeSafe (Jev) backend. Jev is not a chat model: it evaluates a state
- * against typed questions and returns probabilities and confidence. The
- * extension registers an auth-only `typesafe` provider so `/login typesafe`
- * stores the key through pi, and calls the System One endpoint directly.
- */
-import { describe, isRecord } from "../util/primitives.ts";
-import { buildJudgeQuestions, buildJudgeState } from "./state.ts";
+import { buildJudgeQuestions, buildJudgeState } from "#core/judge/state.ts";
 import {
 	JudgeError,
 	type JudgeAnswers,
@@ -14,7 +7,14 @@ import {
 	type JudgeChoiceAnswer,
 	type JudgeInput,
 	type JudgeUsage,
-} from "./types.ts";
+} from "#core/judge/types.ts";
+/**
+ * The TypeSafe (Jev) backend. Jev is not a chat model: it evaluates a state
+ * against typed questions and returns probabilities and confidence. The
+ * extension registers an auth-only `typesafe` provider so `/login typesafe`
+ * stores the key through pi, and calls the System One endpoint directly.
+ */
+import { describe, isRecord } from "#util/primitives.ts";
 
 export const TYPESAFE_PROVIDER = "typesafe";
 export const TYPESAFE_BASE_URL = "https://api.typesafe.ai/v1";

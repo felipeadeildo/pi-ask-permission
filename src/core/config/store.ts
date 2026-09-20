@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { agentDir, CONFIG_DIR } from "../../identity.ts";
-import { describe, isRecord } from "../../util/primitives.ts";
-import { decodeConfig } from "./decode.ts";
-import { defaultConfig, type PermissionConfig } from "./schema.ts";
+import { decodeConfig } from "#core/config/decode.ts";
+import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
+import { agentDir, CONFIG_DIR } from "#identity";
+import { describe, isRecord } from "#util/primitives.ts";
 
 export interface LoadedConfig {
 	config: PermissionConfig;

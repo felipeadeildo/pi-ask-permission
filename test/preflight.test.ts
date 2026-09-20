@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { editFailure } from "../src/preflight.ts";
+import { editFailure } from "#pi/preflight.ts";
 
 const CONTENT = "alpha\nbeta\ngamma\n";
 

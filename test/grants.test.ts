@@ -11,7 +11,7 @@ import {
 	grantsFileExists,
 	loadGrants,
 	saveGrants,
-} from "../src/grants.ts";
+} from "#core/grants.ts";
 
 let dir: string;
 let file: string;

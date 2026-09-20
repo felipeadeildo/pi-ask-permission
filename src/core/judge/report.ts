@@ -4,8 +4,8 @@
  */
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { NAME } from "../identity.ts";
-import type { JudgeRecord } from "./types.ts";
+import type { JudgeRecord } from "#core/judge/types.ts";
+import { NAME } from "#identity";
 
 /** How many decisions the session keeps for `/perm judge log`. */
 export const JUDGE_LOG_LIMIT = 50;

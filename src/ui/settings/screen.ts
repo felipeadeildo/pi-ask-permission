@@ -9,12 +9,12 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, type SettingItem, SettingsList, Text } from "@earendil-works/pi-tui";
 
-import { isFollowupDelivery, isHeadlessMode, type PermissionConfig } from "./core/config/schema.ts";
-import { grantsPath, projectGrantsPath } from "./core/config/store.ts";
-import { type GrantScope, GRANT_SCOPES } from "./grants.ts";
-import { NAME } from "./identity.ts";
-import { POLICY_TEMPLATE, policyWarning } from "./judge/policy.ts";
-import { buildJudgeSettings, type JudgeSettings, judgeValues } from "./judge/settings.ts";
+import { isFollowupDelivery, isHeadlessMode, type PermissionConfig } from "#core/config/schema.ts";
+import { grantsPath, projectGrantsPath } from "#core/config/store.ts";
+import { type GrantScope, GRANT_SCOPES } from "#core/grants.ts";
+import { POLICY_TEMPLATE, policyWarning } from "#core/judge/policy.ts";
+import { NAME } from "#identity";
+import { buildJudgeSettings, type JudgeSettings, judgeValues } from "#ui/settings/judge.ts";
 
 export interface SettingsState {
 	config: PermissionConfig;

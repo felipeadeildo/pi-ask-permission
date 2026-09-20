@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { cleanPaste, expandPastes, pasteMarker, shouldCollapse } from "../src/paste.ts";
+import { cleanPaste, expandPastes, pasteMarker, shouldCollapse } from "#ui/paste.ts";
 
 describe("cleanPaste", () => {
 	test("normalizes line endings and expands tabs", () => {

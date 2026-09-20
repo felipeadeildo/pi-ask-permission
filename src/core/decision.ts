@@ -1,4 +1,4 @@
-import type { GrantScope } from "./grants.ts";
+import type { GrantScope } from "#core/grants.ts";
 
 export interface AskDecision {
 	decision: "allow" | "deny";

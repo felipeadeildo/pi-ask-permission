@@ -5,7 +5,7 @@
  */
 import { basename } from "node:path";
 
-import type { JudgeInput } from "./types.ts";
+import type { JudgeInput } from "#core/judge/types.ts";
 
 /** Tool arguments are capped so one call can never crowd out the policy. */
 const MAX_INPUT_CHARS = 8000;

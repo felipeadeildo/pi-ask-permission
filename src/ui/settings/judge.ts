@@ -6,9 +6,14 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { SettingItem } from "@earendil-works/pi-tui";
 
-import type { JudgeBackendId, JudgeConfig, JudgeFallback } from "../core/config/schema.ts";
-import { PickerList } from "./picker.ts";
-import { detectPolicyPreset, getPolicyPreset, POLICY_PRESETS, policyWarning } from "./policy.ts";
+import type { JudgeBackendId, JudgeConfig, JudgeFallback } from "#core/config/schema.ts";
+import {
+	detectPolicyPreset,
+	getPolicyPreset,
+	POLICY_PRESETS,
+	policyWarning,
+} from "#core/judge/policy.ts";
+import { PickerList } from "#ui/picker.ts";
 
 const BACKEND_LABEL: Record<JudgeBackendId, string> = {
 	jev: "Jev (TypeSafe)",

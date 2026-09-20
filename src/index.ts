@@ -9,11 +9,10 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CONFIG_DIR_NAME, isToolCallEventType } from "@earendil-works/pi-coding-agent";
 
-import { registerBashTimer } from "./bash-timer.ts";
-import { headlessMode, isAllowed } from "./core/config/patterns.ts";
-import type { PermissionConfig } from "./core/config/schema.ts";
-import { grantsPath, loadConfig, projectGrantsPath, saveConfig } from "./core/config/store.ts";
-import { AskDialog } from "./dialog.ts";
+import { headlessMode, isAllowed } from "#core/config/patterns.ts";
+import type { PermissionConfig } from "#core/config/schema.ts";
+import { grantsPath, loadConfig, projectGrantsPath, saveConfig } from "#core/config/store.ts";
+import type { AskDecision } from "#core/decision.ts";
 import {
 	type GrantScope,
 	GRANT_SCOPES,
@@ -23,25 +22,26 @@ import {
 	grantsFileExists,
 	loadGrants,
 	saveGrants,
-} from "./grants.ts";
-import { NAME } from "./identity.ts";
-import { appendJudgeEntry, judgeEntryWorthShowing, registerJudgeEntry } from "./judge/entry.ts";
-import { judgeGate } from "./judge/gate.ts";
+} from "#core/grants.ts";
+import { judgeGate } from "#core/judge/gate.ts";
 import {
 	type JudgeOutcome,
 	type JudgeRecord,
 	probeJudge,
 	TYPESAFE_BASE_URL,
 	TYPESAFE_PROVIDER,
-} from "./judge/index.ts";
-import { judgeLogText, judgeVerdictText, remember, warnOnce } from "./judge/report.ts";
-import type { AskDecision } from "./options.ts";
-import { editFailure } from "./preflight.ts";
-import { isReadOnlyCommand } from "./readonly.ts";
-import { askViaSelector } from "./selector.ts";
-import { grantCount, openSettings, statusText } from "./settings.ts";
-import { type CallTarget, deriveTarget } from "./targets.ts";
-import { TypingMonitor } from "./typing.ts";
+} from "#core/judge/index.ts";
+import { judgeLogText, judgeVerdictText, remember, warnOnce } from "#core/judge/report.ts";
+import { isReadOnlyCommand } from "#core/readonly-bash.ts";
+import { type CallTarget, deriveTarget } from "#core/target.ts";
+import { NAME } from "#identity";
+import { registerBashTimer } from "#pi/bash-timer.ts";
+import { editFailure } from "#pi/preflight.ts";
+import { AskDialog } from "#ui/dialog.ts";
+import { appendJudgeEntry, judgeEntryWorthShowing, registerJudgeEntry } from "#ui/judge-entry.ts";
+import { askViaSelector } from "#ui/selector.ts";
+import { grantCount, openSettings, statusText } from "#ui/settings/screen.ts";
+import { TypingMonitor } from "#ui/typing.ts";
 
 const JUDGE_STATUS = `${NAME}:judge`;
 const TYPING_STATUS = "waiting for you to finish typing";

@@ -3,8 +3,8 @@
  * in `compose.ts` turns those signals into a decision. Nothing here talks to a
  * network, so backends stay swappable and testable.
  */
-import type { JudgeBackendId } from "../core/config/schema.ts";
-import type { CallTarget } from "../targets.ts";
+import type { JudgeBackendId } from "#core/config/schema.ts";
+import type { CallTarget } from "#core/target.ts";
 
 /** The call, the operator policy, and the context a backend may judge it with. */
 export interface JudgeInput {

@@ -7,12 +7,12 @@ import { createHash } from "node:crypto";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { isJudged } from "../core/config/patterns.ts";
-import type { PermissionConfig } from "../core/config/schema.ts";
-import type { CallTarget } from "../targets.ts";
-import { isRecord } from "../util/primitives.ts";
-import { createJudgeBackend, judgeToolCall, TYPESAFE_PROVIDER } from "./index.ts";
-import type { JudgeInput, JudgeOutcome } from "./types.ts";
+import { isJudged } from "#core/config/patterns.ts";
+import type { PermissionConfig } from "#core/config/schema.ts";
+import { createJudgeBackend, judgeToolCall, TYPESAFE_PROVIDER } from "#core/judge/index.ts";
+import type { JudgeInput, JudgeOutcome } from "#core/judge/types.ts";
+import type { CallTarget } from "#core/target.ts";
+import { isRecord } from "#util/primitives.ts";
 
 export interface JudgeGateOptions {
 	config: PermissionConfig;

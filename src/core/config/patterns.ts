@@ -1,4 +1,4 @@
-import type { HeadlessMode, PermissionConfig } from "./schema.ts";
+import type { HeadlessMode, PermissionConfig } from "#core/config/schema.ts";
 
 const patternCache = new Map<string, RegExp>();
 

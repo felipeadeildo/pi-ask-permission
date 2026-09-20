@@ -1,4 +1,16 @@
 import {
+	DEFAULT_CONFIG,
+	DEFAULT_JUDGE,
+	DEFAULT_TYPING,
+	defaultConfig,
+	defaultJudge,
+	type HeadlessMode,
+	type JudgeConfig,
+	type JudgeThresholds,
+	type PermissionConfig,
+	type TypingConfig,
+} from "#core/config/schema.ts";
+import {
 	boolean,
 	type Decoder,
 	duration,
@@ -19,19 +31,7 @@ import {
 	unit,
 	withDefault,
 	withDefaultOf,
-} from "../../util/decode.ts";
-import {
-	DEFAULT_CONFIG,
-	DEFAULT_JUDGE,
-	DEFAULT_TYPING,
-	defaultConfig,
-	defaultJudge,
-	type HeadlessMode,
-	type JudgeConfig,
-	type JudgeThresholds,
-	type PermissionConfig,
-	type TypingConfig,
-} from "./schema.ts";
+} from "#util/decode.ts";
 
 type HeadlessConfig = HeadlessMode | Record<string, HeadlessMode>;
 
