@@ -80,4 +80,21 @@ describe("judge entry", () => {
 		expect(lines([record()], true)[1]).toContain("read-only");
 		expect(lines([record()], true)[2]).toContain("reversibility");
 	});
+
+	test("keeps a space between the label, the tool, and the target", () => {
+		expect(lines([record({ toolName: "webfetch" })])[0]).toContain(
+			"\u25c8 approved webfetch git status",
+		);
+	});
+
+	test("a lone `ask you` does not pay for another card's dry-run label", () => {
+		expect(lines([record({ action: "ask" })])[0]).toContain("\u25c8 ask you bash git status");
+	});
+
+	test("aligns the target column on the widest label in the card", () => {
+		const rendered = lines([record({ action: "ask", dryRun: true }), record({ toolName: "read" })]);
+		expect(rendered[1]).toContain("\u25c8 would ask you bash git status");
+		const targetColumn = (row: string | undefined) => row?.indexOf("git status");
+		expect(targetColumn(rendered[1])).toBe(targetColumn(rendered[2]));
+	});
 });

@@ -7,9 +7,12 @@ import { NAME } from "#identity";
 
 const JUDGE_ENTRY = `${NAME}:judge`;
 
-const ACTION_COLUMN = 13;
-const TOOL_COLUMN = 6;
 const MIN_TARGET = 12;
+
+interface Columns {
+	action: number;
+	tool: number;
+}
 
 export function registerJudgeEntry(pi: ExtensionAPI): void {
 	pi.registerEntryRenderer<unknown>(JUDGE_ENTRY, (entry, { expanded }, theme) => {
@@ -55,6 +58,7 @@ class JudgeEntry implements Component {
 
 	private build(width: number): string[] {
 		const lines: string[] = [];
+		const columns = this.columns();
 
 		if (this.records.length > 1) {
 			lines.push(
@@ -64,7 +68,7 @@ class JudgeEntry implements Component {
 		}
 
 		for (const record of this.records) {
-			lines.push(this.row(record, width));
+			lines.push(this.row(record, width, columns));
 			if (!this.expanded) continue;
 			lines.push(`    ${this.theme.fg("dim", record.reason)}`);
 			lines.push(`    ${this.theme.fg("dim", judgeSignalText(record))}`);
@@ -73,11 +77,23 @@ class JudgeEntry implements Component {
 		return lines;
 	}
 
+	/**
+	 * Widths come from this card's own records, so a lone `ask you` is not
+	 * charged for a `would ask you` that lives in someone else's card. The
+	 * extra column keeps at least one space before the next field: a tool
+	 * named `webfetch` used to run straight into its target.
+	 */
+	private columns(): Columns {
+		const action = Math.max(...this.records.map((r) => judgeActionLabel(r).length));
+		const tool = Math.max(...this.records.map((r) => r.toolName.length));
+		return { action: action + 1, tool: tool + 1 };
+	}
+
 	/** Stats hug the right edge, so the target uses whatever room is left. */
-	private row(record: JudgeRecord, width: number): string {
+	private row(record: JudgeRecord, width: number, columns: Columns): string {
 		const tone = toneFor(record);
-		const action = judgeActionLabel(record).padEnd(ACTION_COLUMN);
-		const tool = record.toolName.padEnd(TOOL_COLUMN);
+		const action = judgeActionLabel(record).padEnd(columns.action);
+		const tool = record.toolName.padEnd(columns.tool);
 		const stats = judgeStatText(record);
 
 		const head = `  \u25c8 ${action}${tool}`;
