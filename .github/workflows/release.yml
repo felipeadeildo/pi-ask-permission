@@ -1,0 +1,45 @@
+# Releases and publishes in one run. Publishing on the `release` event would not
+# fire, because GitHub does not trigger workflows from events created with the
+# default GITHUB_TOKEN. OIDC trusted publishing means no NPM_TOKEN secret.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          release-type: node
+
+      - if: ${{ steps.release.outputs.release_created }}
+        uses: actions/checkout@v4
+
+      - if: ${{ steps.release.outputs.release_created }}
+        uses: oven-sh/setup-bun@v2
+
+      - if: ${{ steps.release.outputs.release_created }}
+        run: bun install --frozen-lockfile
+
+      - if: ${{ steps.release.outputs.release_created }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing wants npm >= 11.5.1, which the runner image may predate.
+      - if: ${{ steps.release.outputs.release_created }}
+        run: npm install -g npm@^11.5.1
+
+      # `prepublishOnly` in package.json runs `bun run verify`.
+      - if: ${{ steps.release.outputs.release_created }}
+        run: npm publish

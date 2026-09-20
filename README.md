@@ -163,6 +163,10 @@ bun run verify     # all of the above
 
 [Lefthook](lefthook.yml) formats and lints staged files on commit, type-checks the project, and runs the full verify before a push.
 
+## Releasing
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org). [release-please](https://github.com/googleapis/release-please) keeps a release PR with the changelog and the version bump. Merging it tags the release, and the same workflow publishes to npm. Auth is [trusted publishing](https://docs.npmjs.com/trusted-publishers/) over OIDC, so there is no `NPM_TOKEN` secret.
+
 ## License
 
 [MIT](LICENSE) © Felipe Adeildo
