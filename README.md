@@ -22,15 +22,26 @@ permission · bash
 ↑↓ or 1-3 pick   enter confirm   tab note   esc deny
 ```
 
-If you are mid-sentence in the editor when a call arrives, the dialog waits for you to pause. The footer reads `waiting for you to finish typing` while it does, and by default it waits however long that takes. Set `typing.maxWait` to cap it.
+## Features
 
-Or hand the decision to a judge model first. See [Delegate to a judge](#delegate-to-a-judge-ai-approvals).
+- Yes, always yes, deny, and a note on any of them.
+- The dialog waits while you are mid-sentence, then opens.
+- Always yes asks depth and scope, and remembers the grant per session, project, or everywhere.
+- Read-only bash commands run without a prompt.
+- Optional AI approvals: a judge model decides first, and anything uncertain still reaches you.
+- Everything configurable from `/perm`, or one JSON file.
 
-## Why
+## Install
 
-Two-button prompts only say yes or no. Say the agent runs `npm install` and you wanted pnpm. Pressing yes runs the wrong command. Pressing no leaves the agent guessing why, so the explanation arrives a turn late and detached from the decision.
+```bash
+pi install npm:pi-ask-permission
+```
 
-Press `tab` and the highlighted row grows an input:
+Or `pi install git:github.com/felipeadeildo/pi-ask-permission`, or clone it and point `~/.pi/agent/settings.json` at `src/index.ts`.
+
+## The dialog
+
+Press `tab` on the highlighted row to attach a note:
 
 ```
 permission · bash
@@ -43,11 +54,22 @@ permission · bash
 ↑↓ pick   enter confirm   esc back
 ```
 
-The note rides along with the tool result, so the agent reads "use pnpm instead" while it is still working. The same works on an approval, for what you want to add. Arrow keys keep moving the highlight with the input attached, and each row keeps its own draft.
+The note rides along with the tool result, so the agent reads "use pnpm instead" while it is still working. Approvals take a note too, for what you want to add. Each row keeps its own draft.
+
+If you are typing in the editor when a call arrives, the dialog waits for a pause. The footer reads `waiting for you to finish typing`, and by default it waits as long as you keep typing. `typing.maxWait` caps it.
 
 Paste works like the main editor. `ctrl+v` drops in a clipboard image as its temp file path, and a long or multi-line paste collapses to a `[paste #1 +48 lines]` marker that expands when you confirm.
 
-## Always yes asks two questions
+| Key                    | Does                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `↑` `↓` or `1` `2` `3` | move the highlight, and the open note input with it                     |
+| `enter`                | confirm the highlighted row                                             |
+| `tab`                  | open or close the note input, and in the depth picker, change the scope |
+| `esc`                  | deny, or close the note input if one is open                            |
+
+Digits only move the highlight, so any row can take a note or a plain confirm. The highlight starts on `yes`, so a plain approval is one `enter`.
+
+## Always yes
 
 How wide the grant is, then how long it lasts.
 
@@ -64,38 +86,34 @@ scope: this session   (tab to change)
 
 The narrowest level is preselected, so `enter` grants exactly what you were looking at. File tools nest by directory, so a write can be approved for one file or the folder around it.
 
-`tab` cycles the scope:
-
 | Scope        | Stored in                                                | Survives                 |
 | ------------ | -------------------------------------------------------- | ------------------------ |
 | this session | memory                                                   | nothing                  |
 | this project | `<project>/.pi/extensions/pi-ask-permission/grants.json` | reloads and new sessions |
 | everywhere   | `~/.pi/agent/extensions/pi-ask-permission/grants.json`   | everything               |
 
-The files are plain JSON, `{ "bash": ["pnpm test"] }`, and grants are matched by tool and level, so a `bash` grant never widens `write`. Project grants load only in a trusted project, so a repository cannot ship a grants file that widens its own permissions.
+The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level, so a `bash` grant never widens `write`. Project grants load only in a trusted project.
 
-## Delegate to a judge (AI approvals)
+## AI approvals
 
-Off by default. When you turn it on, a judge model gets first refusal on a call: a confident approval runs it, a confident denial blocks it, and anything uncertain falls through to the dialog. The judge never fails open — a timeout, an error, or a missing key comes back to you by default.
+Off by default. Turn it on and a judge model gets first refusal on a call. A confident approval runs it, a confident denial blocks it, and anything uncertain falls through to the dialog. A timeout, an error, or a missing key also comes back to you.
 
 Two backends:
 
-- **Jev** (TypeSafe's System One model) is asked typed questions and answers with a verdict, a probability distribution, and a confidence. Fast and cheap.
-- **A pi model** reuses any model you already configured, asking it for strict JSON. A reply that is not valid JSON counts as no judgement.
+- **Jev**, TypeSafe's System One model. It is asked typed questions and answers with a verdict, a probability distribution, and a confidence.
+- **A pi model**. Any model you already configured, asked for strict JSON. A reply that is not valid JSON counts as no judgement.
 
 ### Set up Jev
-
-Log in once. The extension registers an auth-only `typesafe` provider, so the key is stored through pi and Jev never appears in the model picker.
 
 ```bash
 /login typesafe
 ```
 
-`TYPESAFE_API_KEY` works too.
+The extension registers an auth-only `typesafe` provider, so the key is stored through pi and Jev never appears in the model picker. `TYPESAFE_API_KEY` works too.
 
 ### Write a policy
 
-The policy is the rulebook the judge reads, and it is what "delegate" means: say what may run, what must always ask, and what to do in doubt. Turn on _AI approvals (judge)_ in `/perm` and a _Policy_ row appears; pick a preset or write your own.
+The policy is the rulebook the judge reads. Turn on _AI approvals (judge)_ in `/perm` and a _Policy_ row appears; pick a preset or write your own.
 
 ```text
 # May run without asking
@@ -111,15 +129,23 @@ The policy is the rulebook the judge reads, and it is what "delegate" means: say
 Ask me.
 ```
 
-### Try it safely
+Turn on _Dry run_ first if you want to watch it decide without acting. Each decision shows up in the transcript as a card, and `/perm judge log` keeps the session history. If calls come back as `the judge could not decide: no response from ...`, run `/perm judge test`: one real request with a generous timeout, reporting the model, the latency, and the exact error.
 
-Turn on _Dry run_ first. The judge still asks you, but it tells you what it would have decided, so you can check its judgement against yours before letting it act.
+### How the judge decides
 
-If judge calls come back as `the judge could not decide: no response from ...`, run `/perm judge test`. It makes one real request with a generous timeout and reports the model, the latency, and the exact error, so a missing key, a bad model name, a blocked network, and a slow link are told apart.
+The judge answers a fixed set of atomic questions: a verdict, whether the call serves your request, how reversible it is, whether it touches secrets, and whether it leaves the project. Code combines the answers. There is no broad "is this safe?" prompt.
 
-### Configure
+```text
+risk = 0.45 × reversibility + 0.30 × sensitive + 0.25 × outside
+```
 
-Turn on _AI approvals (judge)_ in `/perm` and its settings appear indented beneath it:
+A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, `risk` is at or below `riskCeiling`, and intent clears `intentFloor`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `onUncertain` says otherwise. The `never` list is checked in code first and always falls through to you.
+
+The policy is authoritative and the tool call is treated as untrusted data, so a command cannot talk its way past `never`.
+
+### Settings
+
+Turn on _AI approvals (judge)_ in `/perm` and its rows appear indented beneath it.
 
 | Setting              | Does                                                                                               |
 | -------------------- | -------------------------------------------------------------------------------------------------- |
@@ -162,37 +188,6 @@ The raw config:
 }
 ```
 
-### How the judge decides
-
-The judge answers a fixed battery of atomic questions — a verdict, whether the call serves your request, how reversible it is, whether it touches secrets, and whether it leaves the project — and code combines the answers. There is no broad "is this safe?" prompt.
-
-```text
-risk = 0.45 × reversibility + 0.30 × sensitive + 0.25 × outside
-```
-
-A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, `risk` is at or below `riskCeiling`, and intent clears `intentFloor`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `onUncertain` says otherwise. The `never` list is checked in code first and always falls through to you.
-
-The policy is authoritative and the tool call is treated as untrusted data, so a command cannot talk its way past `never`.
-
-## Install
-
-```bash
-pi install npm:pi-ask-permission
-```
-
-Or `pi install git:github.com/felipeadeildo/pi-ask-permission`, or clone it and point `~/.pi/agent/settings.json` at `src/index.ts`.
-
-## Keys
-
-| Key                    | Does                                                                    |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `↑` `↓` or `1` `2` `3` | move the highlight, and the open note input with it                     |
-| `enter`                | confirm the highlighted row                                             |
-| `tab`                  | open or close the note input, and in the depth picker, change the scope |
-| `esc`                  | deny, or close the note input if one is open                            |
-
-Digits only move the highlight, so any row can take a note or a plain confirm. The highlight starts on `yes`, so a plain approval is one `enter`.
-
 ## Configuration
 
 One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves it with the rest of the agent directory.
@@ -212,7 +207,7 @@ One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves
 }
 ```
 
-The file also carries the full `judge` block, disabled by default; see [Delegate to a judge](#delegate-to-a-judge-ai-approvals).
+The file also carries the full `judge` block, disabled by default.
 
 `allow` lists the tools that never prompt. Wildcards work, so `mcp_*` covers a family. Everything else asks, including tools registered later.
 
@@ -226,9 +221,9 @@ The file also carries the full `judge` block, disabled by default; see [Delegate
 
 `followup` chooses where an approval note goes. `"result"` appends it to the tool result the model is already reading. `"message"` sends it as its own steering message. `yolo` approves everything, for a throwaway run.
 
-`typing` tunes that wait. `pause` is the quiet time in milliseconds before the dialog opens. `maxWait` caps the total wait in milliseconds, or `null` for no cap.
+`typing` tunes that wait. `pause` is the quiet time in milliseconds before the dialog opens. `maxWait` caps the total wait, or `null` for no cap.
 
-`readOnlyBash` skips the dialog for bash commands that only read. `cat`, `grep`, `wc`, `git log`, and chains of them just run. The check is strict on purpose: a redirect, a command substitution, a subshell, a variable assignment, a second line, or any command that can write or execute still asks.
+`readOnlyBash` skips the dialog for bash commands that only read. `cat`, `grep`, `wc`, `git log`, and chains of them just run. A redirect, a command substitution, a subshell, a variable assignment, a second line, or any command that can write or execute still asks.
 
 A missing or malformed file falls back to the defaults and reports what it dropped. A typo never widens the gate.
 
@@ -267,29 +262,15 @@ A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`
 
 `allow` matches a tool name, not an argument, so allowing `bash` permits every bash command.
 
-The judge is a model, so it adds judgement, not a guarantee. It only ever narrows what reaches the dialog: a `never` pattern, a deterministic block, or an uncertain verdict still comes to you. It is not an audit trail for compliance, and it reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
+The judge is a model, so it adds judgement, not a guarantee. It only ever narrows what reaches the dialog: a `never` pattern, a deterministic block, or an uncertain verdict still comes to you. It reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
 
 If you want deterministic rules with no human in the loop, this is the wrong tool.
 
 The read-only check is a classifier, not a sandbox. It matches the command name as written and does not resolve `PATH`, so a `cat` that is a different binary earlier on `PATH` passes the check and then runs. It refuses a name shadowed by an exported shell function, and `BASH_ENV` disables the check because that file can define functions. It also refuses anything it cannot prove harmless, so a few safe commands still ask.
 
-## Development
+## Contributing
 
-Requires [Bun](https://bun.sh). `bun install` also installs the Lefthook hooks.
-
-```bash
-bun run check      # tsc --noEmit
-bun run lint       # oxlint
-bun run fmt        # oxfmt (writes)
-bun run test       # bun test
-bun run verify     # all of the above
-```
-
-[Lefthook](lefthook.yml) formats and lints staged files on commit, type-checks the project, and runs the full verify before a push.
-
-## Releasing
-
-Commits follow [Conventional Commits](https://www.conventionalcommits.org). [release-please](https://github.com/googleapis/release-please) keeps a release PR with the changelog and the version bump. Merging it tags the release, and the same workflow publishes to npm. Auth is [trusted publishing](https://docs.npmjs.com/trusted-publishers/) over OIDC, so there is no `NPM_TOKEN` secret.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Commits follow [Conventional Commits](https://www.conventionalcommits.org); [release-please](https://github.com/googleapis/release-please) handles the changelog and the publish.
 
 ## License
 
