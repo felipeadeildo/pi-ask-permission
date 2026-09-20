@@ -46,7 +46,6 @@ function probeInput(config: JudgeConfig): JudgeInput {
 		target: { summary: command, grantLevels: ["echo", command] },
 		rawInput: { command },
 		cwd: process.cwd(),
-		projectTrusted: true,
 		lastUserMessage: "check that the judge is configured",
 		policy: config.policy || "Connectivity probe from pi-ask-permission.",
 		includeConversation: true,

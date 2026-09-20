@@ -43,7 +43,6 @@ function judgeInput(overrides: Partial<JudgeInput> = {}): JudgeInput {
 		target: { summary: "pnpm test", grantLevels: ["pnpm", "pnpm test"] },
 		rawInput: { command: "pnpm test" },
 		cwd: "/repo",
-		projectTrusted: true,
 		lastUserMessage: "run the tests",
 		policy: "allow tests",
 		includeConversation: true,
@@ -131,12 +130,18 @@ describe("neverMatches", () => {
 });
 
 describe("buildJudgeState", () => {
-	test("carries policy, call, project, and the request", () => {
+	test("carries policy, call, project root, and the request", () => {
 		const state = buildJudgeState(judgeInput());
 		expect(state.policy).toBe("allow tests");
 		expect(state.request).toEqual({ last_user_message: "run the tests" });
 		expect((state.call as Record<string, unknown>).tool).toBe("bash");
-		expect((state.project as Record<string, unknown>).name).toBe("repo");
+		expect((state.project as Record<string, unknown>).root).toBe("/repo");
+	});
+
+	test("sends only what a question refers to", () => {
+		const state = buildJudgeState(judgeInput());
+		expect(Object.keys(state.call as Record<string, unknown>)).toEqual(["tool", "input"]);
+		expect(Object.keys(state.project as Record<string, unknown>)).toEqual(["root"]);
 	});
 
 	test("omits the request when conversation is off", () => {
@@ -591,7 +596,7 @@ describe("judge report", () => {
 		};
 
 		expect(judgeVerdictText(record)).toBe(
-			"would allow \u00b7 94% confident \u00b7 risk 0.12 \u00b7 jev-1.13.0 \u00b7 312ms",
+			"would approve \u00b7 94% confident \u00b7 risk 0.12 \u00b7 jev-1.13.0 \u00b7 312ms",
 		);
 	});
 

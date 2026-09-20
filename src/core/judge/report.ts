@@ -28,8 +28,7 @@ export function judgeLogText(log: JudgeRecord[], limit = 10): string {
 }
 
 export function describeJudgeRecord(record: JudgeRecord): string {
-	const outcome = record.dryRun ? `would ${record.action}` : record.action;
-	return `\u00b7 ${outcome} ${record.toolName}: ${oneLine(record.summary)} \u2014 ${record.reason} (${judgeDetail(record)})`;
+	return `\u00b7 ${judgeActionLabel(record)} ${record.toolName}: ${oneLine(record.summary)}, ${record.reason} (${judgeDetail(record)})`;
 }
 
 function judgeDetail(record: JudgeRecord): string {
@@ -39,9 +38,9 @@ function judgeDetail(record: JudgeRecord): string {
 }
 
 export function judgeActionLabel(record: JudgeRecord): string {
-	if (record.action === "allow") return record.dryRun ? "would allow" : "allow";
-	if (record.action === "deny") return record.dryRun ? "would deny" : "deny";
-	return "ask you";
+	if (record.action === "allow") return record.dryRun ? "would approve" : "approved";
+	if (record.action === "deny") return record.dryRun ? "would deny" : "denied";
+	return record.dryRun ? "would ask you" : "ask you";
 }
 
 export function judgeVerdictText(record: JudgeRecord): string {

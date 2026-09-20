@@ -36,7 +36,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 				? `key from ${auth.label ?? auth.source}`
 				: "no key configured";
 			const suffix = state.config.judge.backend === "jev" ? ` (${source})` : "";
-			ctx.ui.notify(`${NAME}: judge test failed \u2014 ${probe.detail}${suffix}`, "error");
+			ctx.ui.notify(`${NAME}: judge test failed: ${probe.detail}${suffix}`, "error");
 			return;
 		}
 
@@ -45,7 +45,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 		const summary = `judge test ok \u00b7 ${probe.model ?? state.config.judge.model} \u00b7 ${probe.elapsedMs}ms`;
 		if (probe.elapsedMs > state.config.judge.timeoutMs) {
 			ctx.ui.notify(
-				`${NAME}: ${summary} \u2014 slower than the ${state.config.judge.timeoutMs}ms timeout, raise judge.timeoutMs`,
+				`${NAME}: ${summary}. Slower than the ${state.config.judge.timeoutMs}ms timeout, raise judge.timeoutMs`,
 				"warning",
 			);
 			return;

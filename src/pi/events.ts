@@ -17,7 +17,7 @@ import { NAME } from "#identity";
 import { editFailure } from "#pi/preflight.ts";
 import { isGranted, loadGrantScopes, persistGrants, type SessionState } from "#pi/session.ts";
 import { AskDialog } from "#ui/dialog.ts";
-import { appendJudgeEntry, judgeEntryWorthShowing } from "#ui/judge-entry.ts";
+import { appendJudgeEntry } from "#ui/judge-entry.ts";
 import { askViaSelector } from "#ui/selector.ts";
 import { notifyJudgePolicyWarning } from "#ui/settings/status.ts";
 
@@ -144,7 +144,7 @@ async function runJudge(
 
 	const record = outcome.record;
 	remember(record, state.judgeLog);
-	if (judgeEntryWorthShowing(record)) appendJudgeEntry(pi, record);
+	appendJudgeEntry(pi, record);
 
 	if (record.error) {
 		warnOnce(ctx, state.judgeWarned, record);

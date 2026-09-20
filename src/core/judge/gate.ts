@@ -31,7 +31,6 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 		target,
 		rawInput: options.rawInput,
 		cwd: ctx.cwd,
-		projectTrusted: ctx.isProjectTrusted(),
 		lastUserMessage: config.judge.includeConversation ? lastUserMessage(ctx) : undefined,
 		policy: config.judge.policy,
 		includeConversation: config.judge.includeConversation,

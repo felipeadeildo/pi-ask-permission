@@ -6,7 +6,6 @@ export interface JudgeInput {
 	target: CallDescriptor;
 	rawInput: unknown;
 	cwd: string;
-	projectTrusted: boolean;
 	lastUserMessage?: string;
 	policy: string;
 	includeConversation: boolean;

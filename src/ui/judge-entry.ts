@@ -20,7 +20,7 @@ export function registerJudgeEntry(pi: ExtensionAPI): void {
 			`  ${theme.fg(tone, judgeVerdictText(record))}`,
 		];
 
-		if (judgeEntryWorthShowing(record)) {
+		if (record.action !== "allow") {
 			lines.push(`  ${theme.fg("dim", record.reason)}`);
 		}
 
@@ -32,10 +32,6 @@ export function registerJudgeEntry(pi: ExtensionAPI): void {
 
 export function appendJudgeEntry(pi: ExtensionAPI, record: JudgeRecord): void {
 	pi.appendEntry(JUDGE_ENTRY, record);
-}
-
-export function judgeEntryWorthShowing(record: JudgeRecord): boolean {
-	return record.dryRun === true || record.action !== "allow";
 }
 
 function toneFor(record: JudgeRecord): "success" | "error" | "warning" {

@@ -1,5 +1,3 @@
-import { basename } from "node:path";
-
 import type { JudgeInput } from "#core/judge/types.ts";
 
 const MAX_INPUT_CHARS = 8000;
@@ -8,23 +6,12 @@ const MAX_REQUEST_CHARS = 2000;
 export function buildJudgeState(input: JudgeInput): Record<string, unknown> {
 	const state: Record<string, unknown> = {
 		policy: input.policy.trim() || "(no policy provided)",
-		call: {
-			tool: input.toolName,
-			summary: input.target.summary,
-			grantLevels: input.target.grantLevels,
-			input: describeInput(input.rawInput),
-		},
-		project: {
-			root: input.cwd,
-			name: basename(input.cwd) || input.cwd,
-			trusted: input.projectTrusted,
-		},
+		call: { tool: input.toolName, input: describeInput(input.rawInput) },
+		project: { root: input.cwd },
 	};
 
 	const request = input.includeConversation ? input.lastUserMessage?.trim() : undefined;
-	if (request) {
-		state.request = { last_user_message: truncate(request, MAX_REQUEST_CHARS) };
-	}
+	if (request) state.request = { last_user_message: truncate(request, MAX_REQUEST_CHARS) };
 
 	return state;
 }
