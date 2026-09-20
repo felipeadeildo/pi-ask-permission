@@ -3,9 +3,12 @@
 	"version": "1.0.1",
 	"description": "A permission gate for the Pi coding agent: yes / always yes / deny, each with an optional followup note.",
 	"keywords": [
-		"extension",
+		"approval",
 		"permission",
+		"permissions",
 		"pi",
+		"pi-coding-agent",
+		"pi-extension",
 		"pi-package"
 	],
 	"homepage": "https://pi.dev/packages/pi-ask-permission",
