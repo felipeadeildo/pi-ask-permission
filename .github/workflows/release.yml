@@ -1,11 +1,14 @@
 # Releases and publishes in one run. Publishing on the `release` event would not
 # fire, because GitHub does not trigger workflows from events created with the
 # default GITHUB_TOKEN. OIDC trusted publishing means no NPM_TOKEN secret.
+# A manual run of this workflow publishes whatever version is on main, which is
+# how a failed publish gets retried.
 name: Release
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,31 +18,32 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
     steps:
       - id: release
         uses: googleapis/release-please-action@v4
         with:
           release-type: node
 
-      - if: ${{ steps.release.outputs.release_created }}
-        uses: actions/checkout@v4
+  publish:
+    needs: release
+    if: ${{ needs.release.outputs.created == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - if: ${{ steps.release.outputs.release_created }}
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
 
-      - if: ${{ steps.release.outputs.release_created }}
-        run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile
 
-      - if: ${{ steps.release.outputs.release_created }}
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
       # Trusted publishing wants npm >= 11.5.1, which the runner image may predate.
-      - if: ${{ steps.release.outputs.release_created }}
-        run: npm install -g npm@^11.5.1
+      - run: npm install -g npm@^11.5.1
 
       # `prepublishOnly` in package.json runs `bun run verify`.
-      - if: ${{ steps.release.outputs.release_created }}
-        run: npm publish
+      - run: npm publish

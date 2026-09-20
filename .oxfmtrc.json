@@ -7,5 +7,5 @@
 	"insertFinalNewline": true,
 	"sortImports": true,
 	"sortPackageJson": true,
-	"ignorePatterns": ["node_modules/**", "bun.lock", ".git/**"]
+	"ignorePatterns": ["node_modules/**", "bun.lock", ".git/**", "CHANGELOG.md"]
 }
