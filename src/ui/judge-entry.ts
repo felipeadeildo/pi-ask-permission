@@ -12,11 +12,23 @@ const TOOL_COLUMN = 6;
 const MIN_TARGET = 12;
 
 export function registerJudgeEntry(pi: ExtensionAPI): void {
-	pi.registerEntryRenderer<JudgeRecord[]>(JUDGE_ENTRY, (entry, { expanded }, theme) => {
-		const records = entry.data;
-		if (!records || records.length === 0) return undefined;
+	pi.registerEntryRenderer<unknown>(JUDGE_ENTRY, (entry, { expanded }, theme) => {
+		const records = toRecords(entry.data);
+		if (records.length === 0) return undefined;
 		return new JudgeEntry(records, expanded, theme);
 	});
+}
+
+/** Early versions persisted one record per entry; now a turn's records share one. */
+export function toRecords(data: unknown): JudgeRecord[] {
+	const list = Array.isArray(data) ? data : [data];
+	return list.filter(isJudgeRecord);
+}
+
+function isJudgeRecord(value: unknown): value is JudgeRecord {
+	if (typeof value !== "object" || value === null) return false;
+	const record = value as Partial<JudgeRecord>;
+	return typeof record.summary === "string" && typeof record.toolName === "string";
 }
 
 export function appendJudgeEntry(pi: ExtensionAPI, records: JudgeRecord[]): void {
@@ -32,7 +44,16 @@ class JudgeEntry implements Component {
 
 	invalidate(): void {}
 
+	/** A throw here kills the whole TUI, so a drifted entry degrades to a stub. */
 	render(width: number): string[] {
+		try {
+			return this.build(width);
+		} catch {
+			return [this.theme.fg("dim", `${NAME} \u00b7 judge \u00b7 unreadable entry`)];
+		}
+	}
+
+	private build(width: number): string[] {
 		const lines: string[] = [];
 
 		if (this.records.length > 1) {
