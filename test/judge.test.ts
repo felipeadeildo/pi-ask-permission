@@ -596,7 +596,7 @@ describe("judge report", () => {
 		};
 
 		expect(judgeVerdictText(record)).toBe(
-			"would approve \u00b7 94% confident \u00b7 risk 0.12 \u00b7 jev-1.13.0 \u00b7 312ms",
+			"would approve \u00b7 94% \u00b7 risk 0.12 \u00b7 312ms \u00b7 jev-1.13.0",
 		);
 	});
 

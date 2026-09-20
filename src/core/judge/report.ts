@@ -43,16 +43,20 @@ export function judgeActionLabel(record: JudgeRecord): string {
 	return record.dryRun ? "would ask you" : "ask you";
 }
 
-export function judgeVerdictText(record: JudgeRecord): string {
-	const parts = [judgeActionLabel(record)];
+export function judgeStatText(record: JudgeRecord): string {
+	const parts: string[] = [];
 
 	const confidence = record.answers.verdict?.confidence;
-	if (confidence !== undefined) parts.push(`${Math.round(confidence * 100)}% confident`);
+	if (confidence !== undefined) parts.push(`${Math.round(confidence * 100)}%`);
 	if (record.error) parts.push(`error ${record.error}`);
 	if (record.risk !== undefined) parts.push(`risk ${record.risk.toFixed(2)}`);
-	parts.push(record.model, `${record.elapsedMs}ms`);
+	parts.push(`${record.elapsedMs}ms`);
 
 	return parts.join(" \u00b7 ");
+}
+
+export function judgeVerdictText(record: JudgeRecord): string {
+	return `${judgeActionLabel(record)} \u00b7 ${judgeStatText(record)} \u00b7 ${record.model}`;
 }
 
 export function judgeSignalText(record: JudgeRecord): string {

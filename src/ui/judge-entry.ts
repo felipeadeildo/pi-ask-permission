@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 
-import { judgeSignalText, judgeVerdictText, oneLine } from "#core/judge/report.ts";
+import { judgeActionLabel, judgeSignalText, judgeStatText, oneLine } from "#core/judge/report.ts";
 import type { JudgeRecord } from "#core/judge/types.ts";
 import { NAME } from "#identity";
 
@@ -13,17 +13,16 @@ export function registerJudgeEntry(pi: ExtensionAPI): void {
 		if (!record) return undefined;
 
 		const tone = toneFor(record);
+		const action =
+			theme.fg(tone, `\u25c6 ${judgeActionLabel(record)}`) +
+			(record.dryRun ? theme.fg("muted", " (dry run)") : "");
+		const call = `${theme.fg("muted", record.toolName)} ${theme.fg("text", oneLine(record.summary, 80))}`;
+
 		const lines = [
-			theme.fg("accent", theme.bold(`${NAME} \u00b7 judge`)) +
-				(record.dryRun ? theme.fg("muted", " \u00b7 dry run") : ""),
-			`  ${theme.fg("muted", record.toolName)}  ${theme.fg("dim", oneLine(record.summary, 100))}`,
-			`  ${theme.fg(tone, judgeVerdictText(record))}`,
+			`${action}${theme.fg("dim", " \u00b7 ")}${call}${theme.fg("dim", ` \u00b7 ${judgeStatText(record)}`)}`,
 		];
 
-		if (record.action !== "allow") {
-			lines.push(`  ${theme.fg("dim", record.reason)}`);
-		}
-
+		if (record.action !== "allow") lines.push(`  ${theme.fg("dim", record.reason)}`);
 		if (expanded) lines.push(`  ${theme.fg("dim", judgeSignalText(record))}`);
 
 		return new Text(lines.join("\n"), 0, 0);
