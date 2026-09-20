@@ -73,7 +73,11 @@ export function judgeSignalText(record: JudgeRecord): string {
 	return parts.join(" \u00b7 ") || "no signals";
 }
 
+export function flatten(text: string): string {
+	return text.replace(/\s+/g, " ").trim();
+}
+
 export function oneLine(text: string, max = 60): string {
-	const flat = text.replace(/\s+/g, " ").trim();
+	const flat = flatten(text);
 	return flat.length > max ? `${flat.slice(0, max - 3)}...` : flat;
 }
