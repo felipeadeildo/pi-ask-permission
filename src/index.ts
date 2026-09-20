@@ -38,6 +38,7 @@ import {
 } from "./grants.ts";
 import { type AskDecision } from "./options.ts";
 import { editFailure } from "./preflight.ts";
+import { isReadOnlyCommand } from "./readonly.ts";
 import { askViaSelector } from "./selector.ts";
 import { type CallTarget, deriveTarget } from "./targets.ts";
 import { TypingMonitor } from "./typing.ts";
@@ -134,6 +135,16 @@ export default function piAskPermission(pi: ExtensionAPI) {
 
 		const target = deriveTarget(toolName, event.input);
 		if (isGranted(toolName, target.levels)) return undefined;
+
+		// Reading is already allowed through `allow` for the file tools, so a bash
+		// command that only reads can skip the dialog too.
+		if (
+			config.readOnlyBash &&
+			isToolCallEventType("bash", event) &&
+			isReadOnlyCommand(event.input.command)
+		) {
+			return undefined;
+		}
 
 		if (!ctx.hasUI) return headlessRefusal(config, toolName);
 
@@ -375,6 +386,7 @@ function statusText(
 		`allow: ${config.allow.join(", ") || "(none)"}`,
 		`followup: ${config.followup} \u00b7 headless: ${headless} \u00b7 yolo: ${config.yolo ? "on" : "off"}`,
 		`typing: pause ${config.typing.pause}ms \u00b7 maxWait ${config.typing.maxWait ?? "none"}`,
+		`readOnlyBash: ${config.readOnlyBash ? "on" : "off"}`,
 		`grants: ${GRANT_SCOPES.map((scope) => `${grants[scope].size} ${scope}`).join(" \u00b7 ")}`,
 		`project file: ${projectGrantsPath(cwd, CONFIG_DIR_NAME)}`,
 		`global file: ${grantsPath()}`,

@@ -27,6 +27,8 @@ export interface AskConfig {
 	followup: FollowupWire;
 	/** Skip the dialog entirely and approve everything. */
 	yolo: boolean;
+	/** Approve bash commands that only read. */
+	readOnlyBash: boolean;
 	/** How a dialog waits for the user to stop typing. */
 	typing: TypingConfig;
 }
@@ -36,6 +38,7 @@ export const DEFAULT_CONFIG: AskConfig = {
 	headless: "deny",
 	followup: "result",
 	yolo: false,
+	readOnlyBash: true,
 	typing: { pause: 1000, maxWait: null },
 };
 
@@ -143,6 +146,9 @@ export function coerceConfig(raw: Record<string, unknown>, warnings: string[]): 
 
 	if (typeof raw.yolo === "boolean") config.yolo = raw.yolo;
 	else if (raw.yolo !== undefined) warnings.push("yolo: expected a boolean");
+
+	if (typeof raw.readOnlyBash === "boolean") config.readOnlyBash = raw.readOnlyBash;
+	else if (raw.readOnlyBash !== undefined) warnings.push("readOnlyBash: expected a boolean");
 
 	if (isRecord(raw.typing)) {
 		config.typing = coerceTyping(raw.typing, warnings);

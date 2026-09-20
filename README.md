@@ -105,6 +105,7 @@ One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves
 	"headless": "deny",
 	"followup": "result",
 	"yolo": false,
+	"readOnlyBash": true,
 	"typing": { "pause": 1000, "maxWait": null }
 }
 ```
@@ -122,6 +123,8 @@ One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves
 `followup` chooses where an approval note goes. `"result"` appends it to the tool result the model is already reading. `"message"` sends it as its own steering message. `yolo` approves everything, for a throwaway run.
 
 `typing` tunes that wait. `pause` is the quiet time in milliseconds before the dialog opens. `maxWait` caps the total wait in milliseconds, or `null` for no cap.
+
+`readOnlyBash` skips the dialog for bash commands that only read. `cat`, `grep`, `wc`, `git log`, and chains of them just run. The check is strict on purpose: a redirect, a command substitution, a subshell, a variable assignment, a second line, or any command that can write or execute still asks.
 
 A missing or malformed file falls back to the defaults and reports what it dropped. A typo never widens the gate.
 
@@ -141,8 +144,9 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 1. `yolo` is on, allow.
 2. The tool is in `allow`, allow.
 3. A grant matches this tool and level, allow.
-4. There is a UI, ask.[^edit]
-5. There is no UI, `headless` decides. The default denies.
+4. `readOnlyBash` is on and the bash command only reads, allow.
+5. There is a UI, ask.[^edit]
+6. There is no UI, `headless` decides. The default denies.
 
 [^edit]: An `edit` whose `oldText` cannot match the file is blocked with the matcher's own error, no dialog. Asking about an edit that is already going to fail only costs a keystroke.
 
@@ -155,6 +159,8 @@ A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`
 `allow` matches a tool name, not an argument, so allowing `bash` permits every bash command.
 
 If you want deterministic rules with no human in the loop, this is the wrong tool.
+
+The read-only check is a classifier, not a sandbox. It matches the command name as written and does not resolve `PATH`, so a `cat` that is a different binary earlier on `PATH` passes the check and then runs. It refuses a name shadowed by an exported shell function, and `BASH_ENV` disables the check because that file can define functions. It also refuses anything it cannot prove harmless, so a few safe commands still ask.
 
 ## Development
 
