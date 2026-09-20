@@ -3,10 +3,12 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { decodeConfig, decodeJudge } from "#core/config/decode.ts";
+import { decodeConfig } from "#core/config/decode.ts";
 import { headlessMode, isAllowed, isJudged, matchesPattern } from "#core/config/patterns.ts";
-import { DEFAULT_CONFIG, DEFAULT_JUDGE, type PermissionConfig } from "#core/config/schema.ts";
+import { DEFAULT_CONFIG, type PermissionConfig } from "#core/config/schema.ts";
 import { configPath, loadConfig, saveConfig } from "#core/config/store.ts";
+import { DEFAULT_JUDGE } from "#core/judge/config.ts";
+import { decodeJudge } from "#core/judge/decode.ts";
 import { agentDir } from "#identity";
 
 describe("matchesPattern", () => {

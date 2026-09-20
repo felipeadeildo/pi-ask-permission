@@ -20,10 +20,11 @@ export function registerJudgeEntry(pi: ExtensionAPI): void {
 			`  ${theme.fg(tone, judgeVerdictText(record))}`,
 		];
 
-		if (expanded) {
+		if (judgeEntryWorthShowing(record)) {
 			lines.push(`  ${theme.fg("dim", record.reason)}`);
-			lines.push(`  ${theme.fg("dim", judgeSignalText(record))}`);
 		}
+
+		if (expanded) lines.push(`  ${theme.fg("dim", judgeSignalText(record))}`);
 
 		return new Text(lines.join("\n"), 0, 0);
 	});

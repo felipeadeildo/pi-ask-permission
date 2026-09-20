@@ -1,0 +1,52 @@
+import {
+	DEFAULT_JUDGE,
+	defaultJudge,
+	type JudgeConfig,
+	type JudgeThresholds,
+} from "#core/judge/config.ts";
+import {
+	boolean,
+	type Decoder,
+	duration,
+	formatProblems,
+	literal,
+	object,
+	string,
+	stringListOrEmpty,
+	trimmedString,
+	unit,
+	withDefault,
+	withDefaultOf,
+} from "#util/decode.ts";
+
+const thresholds: Decoder<JudgeThresholds> = object({
+	allow: withDefault(unit, DEFAULT_JUDGE.thresholds.allow),
+	deny: withDefault(unit, DEFAULT_JUDGE.thresholds.deny),
+});
+
+export const judgeConfig: Decoder<JudgeConfig> = object({
+	enabled: withDefault(boolean, DEFAULT_JUDGE.enabled),
+	backend: withDefault(literal("jev", "pi"), DEFAULT_JUDGE.backend),
+	model: withDefault(trimmedString, DEFAULT_JUDGE.model),
+	tools: stringListOrEmpty(DEFAULT_JUDGE.tools, "tool name patterns"),
+	never: stringListOrEmpty(DEFAULT_JUDGE.never, "tool name patterns"),
+	thresholds: withDefaultOf(thresholds, () => ({ ...DEFAULT_JUDGE.thresholds })),
+	intentFloor: withDefault(unit, DEFAULT_JUDGE.intentFloor),
+	riskCeiling: withDefault(unit, DEFAULT_JUDGE.riskCeiling),
+	onUncertain: withDefault(literal("ask", "allow", "deny"), DEFAULT_JUDGE.onUncertain),
+	autoDeny: withDefault(boolean, DEFAULT_JUDGE.autoDeny),
+	onError: withDefault(literal("ask", "allow", "deny"), DEFAULT_JUDGE.onError),
+	headless: withDefault(boolean, DEFAULT_JUDGE.headless),
+	dryRun: withDefault(boolean, DEFAULT_JUDGE.dryRun),
+	grant: withDefault(boolean, DEFAULT_JUDGE.grant),
+	timeoutMs: withDefault(duration, DEFAULT_JUDGE.timeoutMs),
+	cache: withDefault(boolean, DEFAULT_JUDGE.cache),
+	includeConversation: withDefault(boolean, DEFAULT_JUDGE.includeConversation),
+	policy: withDefault(string, DEFAULT_JUDGE.policy),
+});
+
+export function decodeJudge(input: unknown, warnings: string[] = []): JudgeConfig {
+	const result = judgeConfig.decode(input, "judge");
+	warnings.push(...formatProblems(result.problems));
+	return result.ok ? result.value : defaultJudge();
+}

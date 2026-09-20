@@ -1,9 +1,17 @@
-import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { PermissionConfig } from "#core/config/schema.ts";
 import { grantsPath, projectGrantsPath } from "#core/config/store.ts";
 import { type GrantScope, GRANT_SCOPES } from "#core/grants.ts";
+import { policyWarning } from "#core/judge/policy.ts";
 import { NAME } from "#identity";
+
+export function notifyJudgePolicyWarning(config: PermissionConfig, ctx: ExtensionContext): void {
+	if (!config.judge.enabled) return;
+
+	const warning = policyWarning(config.judge.policy);
+	if (warning) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
+}
 
 export function statusText(
 	config: PermissionConfig,

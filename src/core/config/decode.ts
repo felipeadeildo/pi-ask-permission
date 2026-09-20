@@ -1,15 +1,13 @@
 import {
 	DEFAULT_CONFIG,
-	DEFAULT_JUDGE,
 	DEFAULT_TYPING,
 	defaultConfig,
-	defaultJudge,
 	type HeadlessMode,
-	type JudgeConfig,
-	type JudgeThresholds,
 	type PermissionConfig,
 	type TypingConfig,
 } from "#core/config/schema.ts";
+import { defaultJudge } from "#core/judge/config.ts";
+import { judgeConfig } from "#core/judge/decode.ts";
 import {
 	boolean,
 	type Decoder,
@@ -24,11 +22,7 @@ import {
 	pass,
 	problem,
 	type Problem,
-	string,
 	stringList,
-	stringListOrEmpty,
-	trimmedString,
-	unit,
 	withDefault,
 	withDefaultOf,
 } from "#util/decode.ts";
@@ -55,32 +49,6 @@ const typing: Decoder<TypingConfig> = object({
 	maxWait: withDefault(nullable(duration), DEFAULT_TYPING.maxWait),
 });
 
-const thresholds: Decoder<JudgeThresholds> = object({
-	allow: withDefault(unit, DEFAULT_JUDGE.thresholds.allow),
-	deny: withDefault(unit, DEFAULT_JUDGE.thresholds.deny),
-});
-
-const judge: Decoder<JudgeConfig> = object({
-	enabled: withDefault(boolean, DEFAULT_JUDGE.enabled),
-	backend: withDefault(literal("jev", "pi"), DEFAULT_JUDGE.backend),
-	model: withDefault(trimmedString, DEFAULT_JUDGE.model),
-	tools: stringListOrEmpty(DEFAULT_JUDGE.tools, "tool name patterns"),
-	never: stringListOrEmpty(DEFAULT_JUDGE.never, "tool name patterns"),
-	thresholds: withDefaultOf(thresholds, () => ({ ...DEFAULT_JUDGE.thresholds })),
-	intentFloor: withDefault(unit, DEFAULT_JUDGE.intentFloor),
-	riskCeiling: withDefault(unit, DEFAULT_JUDGE.riskCeiling),
-	onUncertain: withDefault(literal("ask", "allow", "deny"), DEFAULT_JUDGE.onUncertain),
-	autoDeny: withDefault(boolean, DEFAULT_JUDGE.autoDeny),
-	onError: withDefault(literal("ask", "allow", "deny"), DEFAULT_JUDGE.onError),
-	headless: withDefault(boolean, DEFAULT_JUDGE.headless),
-	dryRun: withDefault(boolean, DEFAULT_JUDGE.dryRun),
-	grant: withDefault(boolean, DEFAULT_JUDGE.grant),
-	timeoutMs: withDefault(duration, DEFAULT_JUDGE.timeoutMs),
-	cache: withDefault(boolean, DEFAULT_JUDGE.cache),
-	includeConversation: withDefault(boolean, DEFAULT_JUDGE.includeConversation),
-	policy: withDefault(string, DEFAULT_JUDGE.policy),
-});
-
 const config: Decoder<PermissionConfig> = object({
 	allow: withDefaultOf(stringList("tool names"), () => [...DEFAULT_CONFIG.allow]),
 	headless: withDefaultOf(headless, () => DEFAULT_CONFIG.headless),
@@ -88,17 +56,11 @@ const config: Decoder<PermissionConfig> = object({
 	yolo: withDefault(boolean, DEFAULT_CONFIG.yolo),
 	readOnlyBash: withDefault(boolean, DEFAULT_CONFIG.readOnlyBash),
 	typing: withDefaultOf(typing, () => ({ ...DEFAULT_TYPING })),
-	judge: withDefaultOf(judge, defaultJudge),
+	judge: withDefaultOf(judgeConfig, defaultJudge),
 });
 
 export function decodeConfig(input: unknown, warnings: string[] = []): PermissionConfig {
 	const result = config.decode(input, "");
 	warnings.push(...formatProblems(result.problems));
 	return result.ok ? result.value : defaultConfig();
-}
-
-export function decodeJudge(input: unknown, warnings: string[] = []): JudgeConfig {
-	const result = judge.decode(input, "judge");
-	warnings.push(...formatProblems(result.problems));
-	return result.ok ? result.value : defaultJudge();
 }

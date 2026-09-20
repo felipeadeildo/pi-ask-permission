@@ -4,15 +4,9 @@ import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
 import { probeJudge, TYPESAFE_PROVIDER } from "#core/judge/index.ts";
 import { judgeLogText } from "#core/judge/report.ts";
 import { NAME } from "#identity";
-import {
-	forgetGrants,
-	resetJudgeHealth,
-	saveConfigFile,
-	type SessionState,
-	warnOnEmptyPolicy,
-} from "#pi/session.ts";
+import { forgetGrants, resetJudgeHealth, saveConfigFile, type SessionState } from "#pi/session.ts";
 import { grantCount, openSettings } from "#ui/settings/screen.ts";
-import { statusText } from "#ui/settings/status.ts";
+import { notifyJudgePolicyWarning, statusText } from "#ui/settings/status.ts";
 
 const JUDGE_STATUS = `${NAME}:judge`;
 
@@ -77,7 +71,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 			state.judgeCache.clear();
 			if (argument === "on") {
 				resetJudgeHealth(state);
-				warnOnEmptyPolicy(state, ctx);
+				notifyJudgePolicyWarning(state.config, ctx);
 			}
 			ctx.ui.notify(`${NAME}: AI approvals ${argument}`, "info");
 			return;

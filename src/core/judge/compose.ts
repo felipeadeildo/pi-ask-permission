@@ -1,5 +1,5 @@
 import { matchesPattern } from "#core/config/patterns.ts";
-import type { JudgeConfig } from "#core/config/schema.ts";
+import type { JudgeConfig } from "#core/judge/config.ts";
 import type { JudgeAnswers } from "#core/judge/types.ts";
 
 export const RISK_WEIGHTS = {

@@ -1,3 +1,20 @@
+export const DEFAULT_POLICY = `# May run without asking
+- Reading, searching, and listing files
+- Editing files inside the project
+- Running tests, linters, type checks, builds, and formatters
+- git status, diff, log, add, and commit
+
+# Must always ask first
+- sudo, or anything that changes state outside the project
+- Installing or upgrading global packages
+- Pushing, force operations, or rewriting history
+- Downloading and running remote scripts
+- Deleting files outside the project, or recursive deletes
+
+# When in doubt
+Ask me.
+`;
+
 export interface PolicyPreset {
 	id: string;
 	label: string;
@@ -6,8 +23,8 @@ export interface PolicyPreset {
 }
 
 export const POLICY_TEMPLATE = `# May run without asking
-- Reading, searching, listing, and inspecting files
-- Running tests, linters, type checks, and formatters
+- Reading, searching, and listing files
+- Running tests, linters, and type checks
 
 # Must always ask first
 - Anything that writes, deletes, or moves files
@@ -21,18 +38,16 @@ Ask me.
 
 export const POLICY_PRESETS: PolicyPreset[] = [
 	{
-		id: "read-only",
-		label: "Read-only & tests",
-		description:
-			"Inspect files and run tests. Anything that writes, installs, or uses the network asks first.",
+		id: "locked",
+		label: "Locked down",
+		description: "Read-only. Any write, install, or network call asks you.",
 		policy: `# May run without asking
-- Reading, searching, listing, and inspecting files
-- Running the existing test suite, linter, and type checker
-- git status, git diff, and git log
+- Reading, searching, and listing files
+- Running the existing tests, linter, and type checker
 
 # Must always ask first
-- Anything that writes, creates, moves, or deletes files
-- Anything that installs, upgrades, or removes packages
+- Anything that writes, creates, moves, or deletes a file
+- Anything that installs or upgrades a package
 - Anything that reaches the network
 - Anything that changes git history or the remote
 
@@ -44,41 +59,27 @@ Ask me.
 		id: "standard",
 		label: "Standard development",
 		description:
-			"Everyday local work: tests, builds, formatters, and local git. Network and destructive commands ask first.",
-		policy: `# May run without asking
-- Reading, searching, listing, and inspecting files
-- Running tests, linters, type checks, builds, and formatters
-- git status, diff, log, add, and commit
-- Creating or editing files inside the project
-
-# Must always ask first
-- sudo, or anything that changes system-wide state
-- Installing or upgrading global packages
-- Pushing to a remote, force operations, or rewriting history
-- Network uploads, and commands that pipe downloads into a shell
-- Deleting files outside the project, or recursive deletes
-
-# When in doubt
-Ask me.
-`,
+			"Edits, tests, builds, and local git. Installs, network, and destructive commands ask you.",
+		policy: DEFAULT_POLICY,
 	},
 	{
-		id: "sandbox",
-		label: "Trusted sandbox",
+		id: "autonomous",
+		label: "Autonomous",
 		description:
-			"Allow most local work, including installs and edits, except destructive or credential-touching commands.",
+			"Adds installs and network reads. sudo, credentials, and destructive commands still ask you.",
 		policy: `# May run without asking
 - Reading, searching, listing, and editing files inside the project
-- Running tests, builds, formatters, and local scripts
+- Running tests, builds, formatters, and project scripts
 - Installing project-local dependencies
+- Fetching dependencies and other network reads
 - git status, diff, log, add, commit, and branch operations
 
 # Must always ask first
 - sudo, or anything that changes system-wide state
-- Commands that read or write credentials, tokens, or private keys
-- Sending data to hosts outside the local machine
+- Reading or writing credentials, tokens, or private keys
+- Uploading data to a host you did not name
+- Force-pushing or deleting a published branch
 - Deleting files outside the project, or recursive deletes
-- Force-pushing or rewriting published history
 
 # When in doubt
 Ask me.
@@ -87,7 +88,7 @@ Ask me.
 	{
 		id: "custom",
 		label: "Custom",
-		description: "Write your own policy. The judge treats it as the authoritative rulebook.",
+		description: "Your own rules, written in the editor.",
 		policy: "",
 	},
 ];
@@ -106,7 +107,7 @@ export const MAX_POLICY_CHARS = 8000;
 export function policyWarning(policy: string): string | undefined {
 	const trimmed = policy.trim();
 	if (trimmed === "")
-		return "no policy set, so the judge will ask you about nearly everything. Pick a preset in /perm.";
+		return "no policy set. Pick a preset in /perm or the judge will ask you about everything.";
 	if (trimmed.length > MAX_POLICY_CHARS)
 		return `policy is ${trimmed.length} characters; keep it under ${MAX_POLICY_CHARS} for reliable judging`;
 	return undefined;

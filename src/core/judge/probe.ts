@@ -1,5 +1,5 @@
-import type { JudgeConfig } from "#core/config/schema.ts";
 import { createJudgeBackend, type JudgeDeps } from "#core/judge/backends/factory.ts";
+import type { JudgeConfig } from "#core/judge/config.ts";
 import type { JudgeInput } from "#core/judge/types.ts";
 import { describe } from "#util/primitives.ts";
 

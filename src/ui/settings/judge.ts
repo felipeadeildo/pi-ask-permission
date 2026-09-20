@@ -1,7 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { SettingItem } from "@earendil-works/pi-tui";
 
-import type { JudgeBackendId, JudgeConfig, JudgeFallback } from "#core/config/schema.ts";
+import type { JudgeBackendId, JudgeConfig, JudgeFallback } from "#core/judge/config.ts";
 import {
 	detectPolicyPreset,
 	getPolicyPreset,
@@ -333,5 +333,7 @@ function policyLabel(policy: string): string {
 function policyDescription(policy: string): string {
 	const warning = policyWarning(policy);
 	if (warning) return warning;
-	return "Your rules for what may run and what must always ask. The judge reads this as authoritative.";
+
+	const preset = getPolicyPreset(detectPolicyPreset(policy));
+	return preset?.description ?? "The judge reads this as the rulebook for what may run.";
 }

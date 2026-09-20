@@ -1,8 +1,8 @@
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
-import type { JudgeConfig } from "#core/config/schema.ts";
 import { createJevBackend, type JudgeFetch } from "#core/judge/backends/jev.ts";
 import { createPiBackend } from "#core/judge/backends/pi-model.ts";
+import type { JudgeConfig } from "#core/judge/config.ts";
 import type { JudgeBackend } from "#core/judge/types.ts";
 
 export interface JudgeDeps {

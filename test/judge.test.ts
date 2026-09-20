@@ -2,15 +2,11 @@ import { describe, expect, test } from "bun:test";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import {
-	DEFAULT_CONFIG,
-	defaultJudge,
-	type JudgeConfig,
-	type PermissionConfig,
-} from "#core/config/schema.ts";
+import { DEFAULT_CONFIG, type PermissionConfig } from "#core/config/schema.ts";
 import { createJevBackend, parseJevResponse, toAnswers } from "#core/judge/backends/jev.ts";
 import { parseJudgeJson, toAnswersFromJson } from "#core/judge/backends/pi-model.ts";
 import { composeVerdict, judgeRisk, neverMatches, RISK_WEIGHTS } from "#core/judge/compose.ts";
+import { defaultJudge, type JudgeConfig } from "#core/judge/config.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeToolCall, probeJudge } from "#core/judge/index.ts";
 import {

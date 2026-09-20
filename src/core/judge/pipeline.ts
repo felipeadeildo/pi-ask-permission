@@ -1,5 +1,10 @@
-import type { JudgeConfig } from "#core/config/schema.ts";
-import { composeVerdict, judgeRisk, neverMatches } from "#core/judge/compose.ts";
+import {
+	composeVerdict,
+	judgeRisk,
+	neverMatches,
+	type ComposedVerdict,
+} from "#core/judge/compose.ts";
+import type { JudgeConfig } from "#core/judge/config.ts";
 import {
 	JudgeError,
 	type JudgeAction,
@@ -36,13 +41,13 @@ export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOut
 
 		const reason = `the judge could not decide: ${describe(error)}`;
 		const wouldAct: JudgeAction = config.onError === "deny" ? "deny" : "ask";
-		const dryRun = config.dryRun && wouldAct !== "ask";
+		const { action, dryRun } = resolveAction(config, wouldAct);
 
 		const record = blankRecord(config, input, reason);
 		record.action = wouldAct;
 		record.error = error instanceof JudgeError ? error.code : "error";
 		record.dryRun = dryRun || undefined;
-		return { action: dryRun ? "ask" : wouldAct, reason, record };
+		return { action, reason, record };
 	}
 
 	const composed = composeVerdict(config, assessment.answers);
@@ -50,8 +55,8 @@ export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOut
 
 	const wouldAct: JudgeAction =
 		composed.decision === "uncertain" ? config.onUncertain : composed.decision;
-	const dryRun = config.dryRun && wouldAct !== "ask";
-	const reason = dryRun ? `dry run: ${composed.reason}` : composed.reason;
+	const { action, dryRun } = resolveAction(config, wouldAct);
+	const reason = describeOutcome(composed.reason, composed.decision, config);
 
 	const record: JudgeRecord = {
 		...assessment,
@@ -64,7 +69,27 @@ export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOut
 		dryRun: dryRun || undefined,
 	};
 
-	return { action: dryRun ? "ask" : wouldAct, reason, record };
+	return { action, reason, record };
+}
+
+/** Dry run records the verdict but asks anyway. */
+function resolveAction(
+	config: JudgeConfig,
+	wouldAct: JudgeAction,
+): { action: JudgeAction; dryRun: boolean } {
+	const dryRun = config.dryRun && wouldAct !== "ask";
+	return { action: dryRun ? "ask" : wouldAct, dryRun };
+}
+
+/** An empty policy is the usual reason nothing gets approved, so say it plainly. */
+function describeOutcome(
+	reason: string,
+	decision: ComposedVerdict["decision"],
+	config: JudgeConfig,
+): string {
+	if (decision === "uncertain" && config.policy.trim() === "")
+		return "no policy is set, so the judge has nothing to approve";
+	return reason;
 }
 
 function blankRecord(config: JudgeConfig, input: JudgeInput, reason: string): JudgeRecord {

@@ -12,7 +12,6 @@ import {
 	saveGrants,
 } from "#core/grants.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/index.ts";
-import { policyWarning } from "#core/judge/policy.ts";
 import { NAME } from "#identity";
 import { TypingMonitor } from "#ui/typing.ts";
 
@@ -55,14 +54,6 @@ export function createSession(): SessionState {
 export function resetJudgeHealth(state: SessionState): void {
 	state.judgeHealth.failures = 0;
 	state.judgeHealth.retryAt = 0;
-}
-
-/** An empty policy makes the judge useless: it asks about everything. Say so. */
-export function warnOnEmptyPolicy(state: SessionState, ctx: ExtensionContext): void {
-	if (!state.config.judge.enabled) return;
-
-	const warning = policyWarning(state.config.judge.policy);
-	if (warning) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
 }
 
 type PersistedScope = Exclude<GrantScope, "session">;

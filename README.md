@@ -113,7 +113,16 @@ The extension registers an auth-only `typesafe` provider, so the key is stored t
 
 ### Write a policy
 
-The policy is the rulebook the judge reads. Turn on _AI approvals (judge)_ in `/perm` and a _Policy_ row appears; pick a preset or write your own.
+The policy is the rulebook the judge reads. Turn on _AI approvals (judge)_ in `/perm` and a _Policy_ row appears.
+
+| Preset               | Allows                                            | Still asks                              |
+| -------------------- | ------------------------------------------------- | --------------------------------------- |
+| Locked down          | reads, existing tests                             | any write, install, or network call     |
+| Standard development | project edits, tests, builds, local git           | installs, network, destructive commands |
+| Autonomous           | the above plus project installs and network reads | sudo, credentials, destructive commands |
+| Custom               | whatever you write                                | everything else                         |
+
+Standard development is the default. A picker shows each preset's description, and the preset is plain text, so you can pick one and keep editing.
 
 ```text
 # May run without asking
@@ -183,10 +192,12 @@ The raw config:
 		"timeoutMs": 5000,
 		"cache": true,
 		"includeConversation": true,
-		"policy": ""
+		"policy": "Allow tests and edits inside the project. Ask before network, installs, or deletes."
 	}
 }
 ```
+
+`policy` defaults to the Standard development preset. A call the policy does not cover comes back to you, so an empty policy means the judge asks about everything.
 
 ## Configuration
 
