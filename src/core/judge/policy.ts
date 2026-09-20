@@ -105,7 +105,8 @@ export const MAX_POLICY_CHARS = 8000;
 
 export function policyWarning(policy: string): string | undefined {
 	const trimmed = policy.trim();
-	if (trimmed === "") return "no policy yet: the judge will send almost everything to you";
+	if (trimmed === "")
+		return "no policy set, so the judge will ask you about nearly everything. Pick a preset in /perm.";
 	if (trimmed.length > MAX_POLICY_CHARS)
 		return `policy is ${trimmed.length} characters; keep it under ${MAX_POLICY_CHARS} for reliable judging`;
 	return undefined;

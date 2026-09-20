@@ -124,6 +124,7 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 				state.save();
 				state.onJudgeChange();
 				install("judge.enabled");
+				warnOnEmptyPolicy(state.config, ctx);
 				return;
 			}
 
@@ -199,6 +200,13 @@ function yoloItem(config: PermissionConfig): SettingItem {
 		values: ["off", "on"],
 		description: "Approve every call without asking",
 	};
+}
+
+function warnOnEmptyPolicy(config: PermissionConfig, ctx: ExtensionContext): void {
+	if (!config.judge.enabled) return;
+
+	const warning = policyWarning(config.judge.policy);
+	if (warning) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
 }
 
 function piModelIds(ctx: ExtensionContext): string[] {

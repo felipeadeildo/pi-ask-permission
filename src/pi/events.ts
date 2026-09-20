@@ -15,7 +15,13 @@ import type { CallDescriptor } from "#core/target.ts";
 import { deriveTarget } from "#core/target.ts";
 import { NAME } from "#identity";
 import { editFailure } from "#pi/preflight.ts";
-import { isGranted, loadGrantScopes, persistGrants, type SessionState } from "#pi/session.ts";
+import {
+	isGranted,
+	loadGrantScopes,
+	persistGrants,
+	type SessionState,
+	warnOnEmptyPolicy,
+} from "#pi/session.ts";
 import { AskDialog } from "#ui/dialog.ts";
 import { appendJudgeEntry, judgeEntryWorthShowing } from "#ui/judge-entry.ts";
 import { askViaSelector } from "#ui/selector.ts";
@@ -29,6 +35,7 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 	pi.on("session_start", (_event, ctx) => {
 		for (const warning of state.configWarnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
 		loadGrantScopes(state, ctx);
+		warnOnEmptyPolicy(state, ctx);
 		state.typing.start(ctx);
 	});
 
