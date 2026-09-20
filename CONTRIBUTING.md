@@ -41,6 +41,10 @@ Use `#core`, `#ui`, `#pi`, `#util`, and `#identity`, declared in `package.json` 
 2. Add a decoder in `core/config/decode.ts`. A missing key takes the default; a present but invalid key takes the default and reports a warning.
 3. Add a test in `test/config.test.ts`.
 
+## Open ideas
+
+The judge sees one call, the policy, and the project root. It does not see the session goal. Sending a short goal summary would make the verdict more accurate. The last user message alone was a poor source, often just "continue", and gating on it escalated most calls. A summary assembled from the session would fix the signal without the false positives.
+
 ## Commit and release
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org). [release-please](https://github.com/googleapis/release-please) keeps a release PR with the changelog and the version bump. Merging it tags the release, and the same workflow publishes to npm. Auth is [trusted publishing](https://docs.npmjs.com/trusted-publishers/) over OIDC, so there is no `NPM_TOKEN` secret.

@@ -7,9 +7,9 @@ import { NAME } from "#identity";
 
 export const JUDGE_ENTRY = `${NAME}:judge`;
 
-const ACTION_COLUMN = 14;
-const TOOL_COLUMN = 8;
-const TARGET_COLUMN = 42;
+const ACTION_COLUMN = 13;
+const TOOL_COLUMN = 6;
+const TARGET_COLUMN = 32;
 
 export function registerJudgeEntry(pi: ExtensionAPI): void {
 	pi.registerEntryRenderer<JudgeRecord[]>(JUDGE_ENTRY, (entry, { expanded }, theme) => {
@@ -35,8 +35,9 @@ function renderRecords(records: JudgeRecord[], expanded: boolean, theme: Theme):
 
 	for (const record of records) {
 		lines.push(renderRecord(record, theme));
-		if (record.action !== "allow") lines.push(`    ${theme.fg("dim", record.reason)}`);
-		if (expanded) lines.push(`    ${theme.fg("dim", judgeSignalText(record))}`);
+		if (!expanded) continue;
+		lines.push(`    ${theme.fg("dim", record.reason)}`);
+		lines.push(`    ${theme.fg("dim", judgeSignalText(record))}`);
 	}
 
 	return lines;
@@ -49,7 +50,7 @@ function renderRecord(record: JudgeRecord, theme: Theme): string {
 	const tool = theme.fg("muted", pad(record.toolName, TOOL_COLUMN));
 	const target = theme.fg("text", pad(oneLine(record.summary, TARGET_COLUMN), TARGET_COLUMN));
 
-	return `  ${marker} ${action}${tool}${target}${theme.fg("dim", judgeStatText(record))}`;
+	return `  ${marker} ${action}${tool}${target} ${theme.fg("dim", judgeStatText(record))}`;
 }
 
 function pad(text: string, width: number): string {
