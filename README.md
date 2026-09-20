@@ -1,6 +1,13 @@
-# pi-ask-permission
+<h1 align="center">pi-ask-permission</h1>
 
-[![CI](https://github.com/felipeadeildo/pi-ask-permission/actions/workflows/ci.yml/badge.svg)](https://github.com/felipeadeildo/pi-ask-permission/actions/workflows/ci.yml)
+<p align="center">
+  <a href="https://github.com/felipeadeildo/pi-ask-permission/actions/workflows/ci.yml"><img src="https://github.com/felipeadeildo/pi-ask-permission/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/npm/v/pi-ask-permission" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/npm/dm/pi-ask-permission" alt="downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
+  <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/badge/provenance-signed-success" alt="provenance"></a>
+  <a href="https://pi.dev/packages/pi-ask-permission"><img src="https://img.shields.io/badge/pi--package-6E56CF" alt="pi package"></a>
+</p>
 
 A permission dialog for the [Pi](https://pi.dev) coding agent. Three answers, each with room for a note that reaches the agent with the decision.
 
