@@ -6,7 +6,11 @@
  * Commands: /perm, /perm status, /perm reset [session|project|global|all]
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { CONFIG_DIR_NAME, getSettingsListTheme } from "@earendil-works/pi-coding-agent";
+import {
+	CONFIG_DIR_NAME,
+	getSettingsListTheme,
+	isToolCallEventType,
+} from "@earendil-works/pi-coding-agent";
 import { Container, type SettingItem, SettingsList, Text } from "@earendil-works/pi-tui";
 
 import {
@@ -32,6 +36,7 @@ import {
 	saveGrants,
 } from "./grants.ts";
 import { type AskDecision } from "./options.ts";
+import { editFailure } from "./preflight.ts";
 import { askViaSelector } from "./selector.ts";
 import { type CallTarget, deriveTarget } from "./targets.ts";
 
@@ -119,6 +124,12 @@ export default function piAskPermission(pi: ExtensionAPI) {
 		if (isGranted(toolName, target.levels)) return undefined;
 
 		if (!ctx.hasUI) return headlessRefusal(config, toolName);
+
+		// An edit that cannot apply fails either way, so block it instead of asking.
+		if (isToolCallEventType("edit", event)) {
+			const failure = await editFailure(ctx, event.input);
+			if (failure) return { block: true, reason: failure };
+		}
 
 		const decision = await ask(ctx, toolName, target);
 
