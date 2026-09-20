@@ -13,6 +13,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, type SettingItem, SettingsList, Text } from "@earendil-works/pi-tui";
 
+import { registerBashTimer } from "./bash-timer.ts";
 import {
 	type AskConfig,
 	grantsPath,
@@ -53,6 +54,8 @@ function grantPath(scope: PersistedScope, cwd: string): string {
 }
 
 export default function piAskPermission(pi: ExtensionAPI) {
+	registerBashTimer(pi);
+
 	const loaded = loadConfig();
 	const config = loaded.config;
 
