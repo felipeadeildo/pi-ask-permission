@@ -34,8 +34,6 @@ export interface SessionState {
 	judgeLog: JudgeRecord[];
 	judgeWarned: Set<string>;
 	judgeHealth: JudgeHealth;
-	/** Decisions waiting for the turn to end, then rendered as one block. */
-	judgeBatch: JudgeRecord[];
 	typing: TypingMonitor;
 }
 
@@ -52,7 +50,6 @@ export function createSession(): SessionState {
 		judgeLog: [],
 		judgeWarned: new Set(),
 		judgeHealth: { failures: 0, retryAt: 0 },
-		judgeBatch: [],
 		typing: new TypingMonitor(loaded.config.typing.pause, loaded.config.typing.maxWait),
 	};
 }

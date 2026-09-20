@@ -43,13 +43,6 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		state.typing.stop();
 	});
 
-	pi.on("turn_end", () => {
-		if (state.judgeBatch.length === 0) return;
-
-		appendJudgeEntry(pi, state.judgeBatch);
-		state.judgeBatch = [];
-	});
-
 	pi.on("tool_call", async (event, ctx) => {
 		const { config } = state;
 		if (config.yolo) return undefined;
@@ -69,6 +62,7 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		}
 
 		const resolution = await runJudge(state, {
+			pi,
 			ctx,
 			toolName,
 			target,
@@ -124,6 +118,7 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 }
 
 interface JudgeRequest {
+	pi: ExtensionAPI;
 	ctx: ExtensionContext;
 	toolName: string;
 	target: CallDescriptor;
@@ -155,7 +150,7 @@ async function runJudge(
 
 	const record = outcome.record;
 	remember(record, state.judgeLog);
-	state.judgeBatch.push(record);
+	appendJudgeEntry(request.pi, record);
 
 	if (record.error) {
 		warnOnce(ctx, state.judgeWarned, record);

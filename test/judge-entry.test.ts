@@ -48,6 +48,8 @@ function renderer(): (data: unknown, expanded?: boolean) => Component | undefine
 const lines = (data: unknown, expanded = false): string[] =>
 	renderer()(data, expanded)?.render(80) ?? [];
 
+const targetColumn = (row: string | undefined) => row?.indexOf("git status");
+
 describe("judge entry", () => {
 	test("accepts the array shape written today", () => {
 		expect(lines([record(), record({ toolName: "read" })])).toHaveLength(3);
@@ -94,7 +96,6 @@ describe("judge entry", () => {
 	test("aligns the target column on the widest label in the card", () => {
 		const rendered = lines([record({ action: "ask", dryRun: true }), record({ toolName: "read" })]);
 		expect(rendered[1]).toContain("\u25c8 would ask you bash git status");
-		const targetColumn = (row: string | undefined) => row?.indexOf("git status");
 		expect(targetColumn(rendered[1])).toBe(targetColumn(rendered[2]));
 	});
 });

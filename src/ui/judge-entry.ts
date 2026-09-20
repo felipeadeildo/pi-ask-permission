@@ -34,8 +34,14 @@ function isJudgeRecord(value: unknown): value is JudgeRecord {
 	return typeof record.summary === "string" && typeof record.toolName === "string";
 }
 
-export function appendJudgeEntry(pi: ExtensionAPI, records: JudgeRecord[]): void {
-	pi.appendEntry(JUDGE_ENTRY, records);
+/**
+ * One entry per decision, written as soon as the judge answers. Waiting for
+ * the turn to end held the card back until after execution, so a parallel
+ * call hid every verdict behind the slowest command. The array shape is kept
+ * because sessions written before this grouped a turn's records into one.
+ */
+export function appendJudgeEntry(pi: ExtensionAPI, record: JudgeRecord): void {
+	pi.appendEntry(JUDGE_ENTRY, [record]);
 }
 
 class JudgeEntry implements Component {
