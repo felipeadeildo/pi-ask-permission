@@ -20,6 +20,25 @@ describe("read-only chains", () => {
 		expect(ro("git log --oneline -5 && git status")).toBe(true);
 		expect(ro("git -C /repo status")).toBe(true);
 	});
+
+	test("allows redirects that only discard output", () => {
+		expect(ro("git show HEAD:x.py 2>/dev/null | head -5; git diff main...x -- a.py")).toBe(true);
+		expect(ro("ls -la tests 2>&1 | tail -3")).toBe(true);
+		expect(ro("git log > /dev/null && git status")).toBe(true);
+		expect(ro("ls -la &>/dev/null")).toBe(true);
+		expect(ro("cat file < /dev/null")).toBe(true);
+	});
+
+	test("allows sed address ranges that only print or delete", () => {
+		expect(ro("sed -n '/^## Work/,/^Infra/p' PLAN.md")).toBe(true);
+		expect(ro("sed -n '10,20p' file")).toBe(true);
+		expect(ro("sed '1,3d' file")).toBe(true);
+	});
+
+	test("treats backticks and $() inside single quotes as literal", () => {
+		expect(ro("grep -n '^`x`' file")).toBe(true);
+		expect(ro("echo '$(date)'")).toBe(true);
+	});
 });
 
 describe("read-only refusals", () => {
@@ -28,8 +47,17 @@ describe("read-only refusals", () => {
 		expect(ro("echo hi >> log")).toBe(false);
 		expect(ro("cat < input")).toBe(false);
 		expect(ro("echo $(date)")).toBe(false);
+		expect(ro('echo "$(date)"')).toBe(false);
 		expect(ro("cat `whoami`")).toBe(false);
+		expect(ro('echo "`date`"')).toBe(false);
 		expect(ro("(cat file)")).toBe(false);
+	});
+
+	test("redirects to real files are writes", () => {
+		expect(ro("git show HEAD:x 2>/tmp/err.log")).toBe(false);
+		expect(ro("ls 2>> out")).toBe(false);
+		expect(ro("ls 2>/dev/null && rm -rf /tmp/x")).toBe(false);
+		expect(ro("uniq a b 2>/dev/null")).toBe(false);
 	});
 
 	test("multi-line input, because newlines fold into whitespace", () => {

@@ -232,7 +232,7 @@ The file also carries the full `judge` block, disabled by default.
 
 `typing` tunes that wait. `pause` is the quiet time in milliseconds before the dialog opens. `maxWait` caps the total wait, or `null` for no cap.
 
-`readOnlyBash` skips the dialog for bash commands that only read. `cat`, `grep`, `wc`, `git log`, and chains of them just run. A redirect, a command substitution, a subshell, a variable assignment, a second line, or any command that can write or execute still asks.
+`readOnlyBash` skips the dialog for bash commands that only read. `cat`, `grep`, `wc`, `git log`, and chains of them just run. A redirect to a real file, a command substitution, a subshell, a variable assignment, a second line, or any command that can write or execute still asks. A redirect that only discards output (`2>/dev/null`, `2>&1`, `>/dev/null`) does not ask.
 
 A missing or malformed file falls back to the defaults and reports what it dropped. A typo never widens the gate.
 

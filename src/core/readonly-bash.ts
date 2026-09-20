@@ -148,6 +148,7 @@ const ARG_CHECKS: Record<string, (args: string[]) => boolean> = {
 export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = process.env): boolean {
 	if (/[\r\n]/.test(command)) return false;
 	if (env.BASH_ENV) return false;
+	if (hasCommandSubstitution(command)) return false;
 
 	let tokens: ParseEntry[];
 	try {
@@ -157,9 +158,10 @@ export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = proc
 	}
 
 	let segment: string[] = [];
-	for (const token of tokens) {
+	for (let index = 0; index < tokens.length; index++) {
+		const token = tokens[index];
+		if (token === undefined) continue;
 		if (typeof token === "string") {
-			if (token.includes("`")) return false;
 			segment.push(token);
 			continue;
 		}
@@ -168,11 +170,75 @@ export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = proc
 			segment.push(token.pattern);
 			continue;
 		}
+
+		const consumed = safeRedirect(tokens, index);
+		if (consumed !== undefined) {
+			index += consumed;
+			dropFileDescriptor(segment);
+			continue;
+		}
+
 		if (!SEPARATORS.has(token.op)) return false;
 		if (!isReadOnlySegment(segment, env)) return false;
 		segment = [];
 	}
 	return isReadOnlySegment(segment, env);
+}
+
+// Backticks and `$(` run commands, unless single quotes make them literal.
+function hasCommandSubstitution(command: string): boolean {
+	let singleQuoted = false;
+
+	for (let index = 0; index < command.length; index++) {
+		const char = command[index];
+		if (char === "'") {
+			singleQuoted = !singleQuoted;
+			continue;
+		}
+		if (singleQuoted) continue;
+		if (char === "\\") {
+			index++;
+			continue;
+		}
+		if (char === "`") return true;
+		if (char === "$" && command[index + 1] === "(") return true;
+	}
+
+	return false;
+}
+
+function operatorOf(entry: ParseEntry | undefined): string | undefined {
+	if (entry === undefined || typeof entry === "string" || !("op" in entry)) return undefined;
+	return entry.op;
+}
+
+// Redirections to `/dev/null` and fd duplications do not touch the filesystem.
+// Returns how many following tokens the redirect consumed.
+function safeRedirect(tokens: ParseEntry[], index: number): number | undefined {
+	const op = operatorOf(tokens[index]);
+	if (op === undefined) return undefined;
+
+	if (op === "&") {
+		const inner = operatorOf(tokens[index + 1]);
+		if (inner !== ">" && inner !== ">>") return undefined;
+		return tokens[index + 2] === "/dev/null" ? 2 : undefined;
+	}
+
+	if (op === ">" || op === "<") {
+		return tokens[index + 1] === "/dev/null" ? 1 : undefined;
+	}
+
+	if (op === ">&") {
+		const target = tokens[index + 1];
+		return target === "1" || target === "2" ? 1 : undefined;
+	}
+
+	return undefined;
+}
+
+// `ls 2>/dev/null` parses the descriptor as a plain word before the operator.
+function dropFileDescriptor(segment: string[]): void {
+	if (segment.at(-1) === "1" || segment.at(-1) === "2") segment.pop();
 }
 
 function isReadOnlySegment(words: string[], env: NodeJS.ProcessEnv): boolean {
@@ -215,13 +281,15 @@ function safeSed(args: string[]): boolean {
 	return scripts.length > 0 && scripts.every(safeSedScript);
 }
 
+const SED_ADDRESS = String.raw`(?:\d+|\$|\/[^/]*\/)`;
+const SED_ADDRESS_RANGE = new RegExp(`^${SED_ADDRESS}(?:,${SED_ADDRESS})?[pd]$`);
+
 function safeSedScript(script: string): boolean {
 	if (script.includes("{") || script.includes("}")) return false;
 	return script.split(/[;\n]/).every((part) => {
 		const piece = part.trim();
 		if (piece === "") return true;
-		if (/^\d+(,\d+)?[pd]$/.test(piece) || /^\$p$/.test(piece)) return true;
-		if (/^\/[^/]*\/p$/.test(piece)) return true;
+		if (SED_ADDRESS_RANGE.test(piece)) return true;
 
 		const substitution = /^s(.)[\s\S]*?\1[\s\S]*?\1([gip0-9]*)$/.exec(piece);
 		return substitution !== null && !/[we]/.test(substitution[2] ?? "");
