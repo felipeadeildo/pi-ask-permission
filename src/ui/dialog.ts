@@ -15,10 +15,11 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
-import { type AskDecision, BASE_OPTIONS, type DecisionOption } from "#core/decision.ts";
+import type { PermissionDecision } from "#core/decision.ts";
 import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
-import type { CallTarget } from "#core/target.ts";
+import type { CallDescriptor } from "#core/target.ts";
 import { readClipboard } from "#ui/clipboard.ts";
+import { CHOICES, type Choice } from "#ui/decision-options.ts";
 import {
 	cleanPaste,
 	expandPastes,
@@ -41,18 +42,18 @@ const SUMMARY_ROWS = 3;
 interface AskDialogOptions {
 	theme: Theme;
 	toolName: string;
-	target: CallTarget;
+	target: CallDescriptor;
 	keybindings: KeybindingsManager;
 	requestRender: () => void;
-	complete: (decision: AskDecision) => void;
+	complete: (decision: PermissionDecision) => void;
 }
 
 export class AskDialog implements Component, Focusable {
 	private readonly theme: Theme;
 	private readonly toolName: string;
-	private readonly target: CallTarget;
+	private readonly target: CallDescriptor;
 	private readonly requestRender: () => void;
-	private readonly complete: (decision: AskDecision) => void;
+	private readonly complete: (decision: PermissionDecision) => void;
 	private readonly keybindings: KeybindingsManager;
 	/** One note editor per row, so each row keeps its own draft. */
 	private readonly noteInputs: Input[];
@@ -65,7 +66,7 @@ export class AskDialog implements Component, Focusable {
 	private selected = 0;
 	private levelIndex = 0;
 	private scopeIndex = 0;
-	private pending: DecisionOption | null = null;
+	private pending: Choice | null = null;
 	private noteIndex: number | null = null;
 	/** Note carried from the menu into the depth picker. */
 	private pendingNote: string | undefined;
@@ -91,7 +92,7 @@ export class AskDialog implements Component, Focusable {
 		this.complete = options.complete;
 		this.keybindings = options.keybindings;
 
-		this.noteInputs = [...BASE_OPTIONS.keys()].map((index) => {
+		this.noteInputs = [...CHOICES.keys()].map((index) => {
 			const input = new Input({ prompt: "", placeholder: "" });
 			input.onSubmit = () => this.choose(index);
 			input.onEscape = () => {
@@ -121,7 +122,7 @@ export class AskDialog implements Component, Focusable {
 		if (this.phase === "levels") {
 			lines.push(...this.levelLines());
 		} else {
-			for (const [index, option] of BASE_OPTIONS.entries()) {
+			for (const [index, option] of CHOICES.entries()) {
 				lines.push(this.renderOption(option, index, inner));
 			}
 			lines.push("");
@@ -150,7 +151,7 @@ export class AskDialog implements Component, Focusable {
 		if (this.phase === "levels") {
 			if (matchesKey(data, Key.up)) this.levelIndex = Math.max(0, this.levelIndex - 1);
 			else if (matchesKey(data, Key.down))
-				this.levelIndex = Math.min(this.target.levels.length - 1, this.levelIndex + 1);
+				this.levelIndex = Math.min(this.target.grantLevels.length - 1, this.levelIndex + 1);
 			else if (matchesKey(data, Key.tab))
 				this.scopeIndex = (this.scopeIndex + 1) % GRANT_SCOPES.length;
 			else if (matchesKey(data, Key.enter)) this.confirmLevel();
@@ -180,13 +181,13 @@ export class AskDialog implements Component, Focusable {
 		}
 
 		// Digits move the highlight; Tab and Enter then act on that row.
-		const picked = BASE_OPTIONS.findIndex((option) => option.key === data);
+		const picked = CHOICES.findIndex((option) => option.key === data);
 		if (picked >= 0) this.selected = picked;
 	}
 
 	/** Moves the highlight, wrapping at the ends. */
 	private moveSelection(delta: number): void {
-		const count = BASE_OPTIONS.length;
+		const count = CHOICES.length;
 		this.selected = (this.selected + delta + count) % count;
 	}
 
@@ -198,7 +199,7 @@ export class AskDialog implements Component, Focusable {
 	}
 
 	private choose(index: number): void {
-		const option = BASE_OPTIONS[index];
+		const option = CHOICES[index];
 		if (!option) return;
 		this.selected = index;
 
@@ -207,7 +208,7 @@ export class AskDialog implements Component, Focusable {
 			this.pending = option;
 			this.pendingNote = this.draftNote();
 			this.noteIndex = null;
-			this.levelIndex = this.target.levels.length - 1;
+			this.levelIndex = this.target.grantLevels.length - 1;
 			this.scopeIndex = 0;
 			this.phase = "levels";
 			return;
@@ -216,12 +217,12 @@ export class AskDialog implements Component, Focusable {
 		this.complete({
 			decision: option.decision,
 			note: this.draftNote(),
-			remember: option.always ? this.target.levels[0] : undefined,
+			remember: option.always ? this.target.grantLevels[0] : undefined,
 		});
 	}
 
 	private confirmLevel(): void {
-		const level = this.target.levels[this.levelIndex];
+		const level = this.target.grantLevels[this.levelIndex];
 		if (!this.pending || level === undefined) return;
 
 		this.complete({
@@ -308,7 +309,7 @@ export class AskDialog implements Component, Focusable {
 	private levelLines(): string[] {
 		const lines = [this.theme.fg("muted", "always yes for...")];
 
-		for (const [index, level] of this.target.levels.entries()) {
+		for (const [index, level] of this.target.grantLevels.entries()) {
 			const active = index === this.levelIndex;
 			const marker = active ? this.theme.fg("accent", "\u276f ") : "  ";
 			lines.push(marker + this.theme.fg(active ? "accent" : "text", level));
@@ -326,7 +327,7 @@ export class AskDialog implements Component, Focusable {
 		return lines;
 	}
 
-	private renderOption(option: DecisionOption, index: number, inner: number): string {
+	private renderOption(option: Choice, index: number, inner: number): string {
 		const active = index === this.selected;
 		const editing = this.noteIndex === index;
 		const input = this.noteInputs[index];

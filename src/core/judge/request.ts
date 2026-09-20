@@ -17,7 +17,7 @@ export function buildJudgeState(input: JudgeInput): Record<string, unknown> {
 		call: {
 			tool: input.toolName,
 			summary: input.target.summary,
-			levels: input.target.levels,
+			grantLevels: input.target.grantLevels,
 			input: describeInput(input.rawInput),
 		},
 		project: {

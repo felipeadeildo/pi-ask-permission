@@ -3,9 +3,10 @@ import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, type KeybindingsManager, visibleWidth } from "@earendil-works/pi-tui";
 
-import { type AskDecision, FALLBACK_OPTIONS } from "#core/decision.ts";
+import type { PermissionDecision } from "#core/decision.ts";
 import type { GrantScope } from "#core/grants.ts";
 import { deriveTarget } from "#core/target.ts";
+import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
 import { AskDialog } from "#ui/dialog.ts";
 
 /** Colour-free stand-in; only fg/bold are ever called by the dialog. */
@@ -23,7 +24,7 @@ const KEYS = { up: "\x1b[A", down: "\x1b[B", enter: "\r", tab: "\t", esc: "\x1b"
 const NO_PASTE = { matches: () => false } as unknown as KeybindingsManager;
 
 function open(toolName = "bash", input: unknown = { command: "git status --short" }) {
-	const decisions: AskDecision[] = [];
+	const decisions: PermissionDecision[] = [];
 	let renders = 0;
 	const dialog = new AskDialog({
 		theme,
@@ -46,8 +47,8 @@ function type(dialog: AskDialog, text: string): void {
 	for (const char of text) dialog.handleInput(char);
 }
 
-const YES: AskDecision = { decision: "allow", note: undefined, remember: undefined };
-const NO: AskDecision = { decision: "deny", note: undefined, remember: undefined };
+const YES: PermissionDecision = { decision: "allow", note: undefined, remember: undefined };
+const NO: PermissionDecision = { decision: "deny", note: undefined, remember: undefined };
 
 describe("menu", () => {
 	test("enter on the default row allows", () => {
@@ -336,8 +337,8 @@ describe("note paste", () => {
 
 describe("fallback options", () => {
 	test("derives one row per base option, plain then note", () => {
-		expect(FALLBACK_OPTIONS.map((option) => option.key)).toEqual(["1", "2", "3", "4", "5", "6"]);
-		expect(FALLBACK_OPTIONS.map((option) => option.label)).toEqual([
+		expect(FALLBACK_CHOICES.map((option) => option.key)).toEqual(["1", "2", "3", "4", "5", "6"]);
+		expect(FALLBACK_CHOICES.map((option) => option.label)).toEqual([
 			"yes",
 			"yes, with a note",
 			"always yes",
@@ -345,7 +346,7 @@ describe("fallback options", () => {
 			"deny",
 			"deny, with a reason",
 		]);
-		expect(FALLBACK_OPTIONS.map((option) => [option.decision, option.always, option.note])).toEqual(
+		expect(FALLBACK_CHOICES.map((option) => [option.decision, option.always, option.note])).toEqual(
 			[
 				["allow", false, false],
 				["allow", false, true],

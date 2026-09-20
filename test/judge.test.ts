@@ -8,11 +8,11 @@ import {
 	type JudgeConfig,
 	type PermissionConfig,
 } from "#core/config/schema.ts";
+import { createJevBackend, parseJevResponse, toAnswers } from "#core/judge/backends/jev.ts";
+import { parseJudgeJson, toAnswersFromJson } from "#core/judge/backends/pi-model.ts";
 import { composeVerdict, judgeRisk, neverMatches, RISK_WEIGHTS } from "#core/judge/compose.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeToolCall, probeJudge } from "#core/judge/index.ts";
-import { createJevBackend, parseJevResponse, toAnswers } from "#core/judge/jev.ts";
-import { parseJudgeJson, toAnswersFromJson } from "#core/judge/pi-model.ts";
 import {
 	detectPolicyPreset,
 	POLICY_PRESETS,
@@ -20,7 +20,7 @@ import {
 	policyWarning,
 } from "#core/judge/policy.ts";
 import { judgeLogText, judgeSignalText, judgeVerdictText } from "#core/judge/report.ts";
-import { buildJudgeQuestions, buildJudgeState } from "#core/judge/state.ts";
+import { buildJudgeQuestions, buildJudgeState } from "#core/judge/request.ts";
 import {
 	JudgeError,
 	type JudgeAnswers,
@@ -44,7 +44,7 @@ function answers(overrides: Partial<JudgeAnswers> = {}): JudgeAnswers {
 function judgeInput(overrides: Partial<JudgeInput> = {}): JudgeInput {
 	return {
 		toolName: "bash",
-		target: { summary: "pnpm test", levels: ["pnpm", "pnpm test"] },
+		target: { summary: "pnpm test", grantLevels: ["pnpm", "pnpm test"] },
 		rawInput: { command: "pnpm test" },
 		cwd: "/repo",
 		projectTrusted: true,
@@ -331,7 +331,7 @@ describe("judgeToolCall", () => {
 		const outcome = await judgeToolCall({
 			config,
 			backend,
-			input: judgeInput({ target: { summary: "rm -rf /", levels: ["rm", "rm -rf /"] } }),
+			input: judgeInput({ target: { summary: "rm -rf /", grantLevels: ["rm", "rm -rf /"] } }),
 		});
 
 		expect(called).toBe(false);
@@ -617,7 +617,7 @@ describe("judge report", () => {
 });
 
 describe("judgeGate", () => {
-	const target = { summary: "pnpm test", levels: ["pnpm", "pnpm test"] };
+	const target = { summary: "pnpm test", grantLevels: ["pnpm", "pnpm test"] };
 
 	test("skips the judge while it is disabled", async () => {
 		const outcome = await judgeGate({

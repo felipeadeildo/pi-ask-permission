@@ -5,32 +5,32 @@
 import { homedir } from "node:os";
 import { dirname } from "node:path";
 
-export interface CallTarget {
+export interface CallDescriptor {
 	summary: string;
 	/** Approval levels, coarsest first. Always at least one entry. */
-	levels: string[];
+	grantLevels: string[];
 }
 
 const FILE_TOOLS = new Set(["read", "write", "edit", "grep", "find", "ls"]);
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const INPUT_SUMMARY_MAX = 400;
 
-export function deriveTarget(toolName: string, input: unknown): CallTarget {
+export function deriveTarget(toolName: string, input: unknown): CallDescriptor {
 	const record = (input ?? {}) as Record<string, unknown>;
 
 	if (toolName === "bash" || toolName === "powershell") {
 		const command = asString(record.command) ?? "";
-		return { summary: command.trim() || "(empty command)", levels: commandLevels(command) };
+		return { summary: command.trim() || "(empty command)", grantLevels: commandLevels(command) };
 	}
 
 	if (FILE_TOOLS.has(toolName)) {
 		const path = asString(record.path) ?? "";
-		return { summary: path.trim() || "(no path)", levels: pathLevels(path) };
+		return { summary: path.trim() || "(no path)", grantLevels: pathLevels(path) };
 	}
 
 	if (toolName === "mcp") return mcpTarget(record);
 
-	return { summary: summarizeInput(record), levels: [toolName] };
+	return { summary: summarizeInput(record), grantLevels: [toolName] };
 }
 
 /** Coarsest to finest: the head, the head plus subcommand, then the whole command. */
@@ -123,16 +123,16 @@ export function tokenize(command: string): string[] {
 	return tokens;
 }
 
-function mcpTarget(record: Record<string, unknown>): CallTarget {
+function mcpTarget(record: Record<string, unknown>): CallDescriptor {
 	const server = asString(record.server);
 	const tool = asString(record.tool);
 
 	if (server && tool) {
-		return { summary: `${server}:${tool}`, levels: [server, `${server}:${tool}`] };
+		return { summary: `${server}:${tool}`, grantLevels: [server, `${server}:${tool}`] };
 	}
-	if (tool) return { summary: tool, levels: [tool] };
-	if (server) return { summary: server, levels: [server] };
-	return { summary: summarizeInput(record), levels: ["mcp"] };
+	if (tool) return { summary: tool, grantLevels: [tool] };
+	if (server) return { summary: server, grantLevels: [server] };
+	return { summary: summarizeInput(record), grantLevels: ["mcp"] };
 }
 
 function asString(value: unknown): string | undefined {

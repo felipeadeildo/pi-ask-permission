@@ -7,7 +7,7 @@ import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
  */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
-import { buildJudgeQuestions, buildJudgeState } from "#core/judge/state.ts";
+import { buildJudgeQuestions, buildJudgeState } from "#core/judge/request.ts";
 import {
 	JudgeError,
 	type JudgeAnswers,

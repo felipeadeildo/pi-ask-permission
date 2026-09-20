@@ -1,4 +1,4 @@
-import { buildJudgeQuestions, buildJudgeState } from "#core/judge/state.ts";
+import { buildJudgeQuestions, buildJudgeState } from "#core/judge/request.ts";
 import {
 	JudgeError,
 	type JudgeAnswers,

@@ -11,14 +11,14 @@ import { isJudged } from "#core/config/patterns.ts";
 import type { PermissionConfig } from "#core/config/schema.ts";
 import { createJudgeBackend, judgeToolCall, TYPESAFE_PROVIDER } from "#core/judge/index.ts";
 import type { JudgeInput, JudgeOutcome } from "#core/judge/types.ts";
-import type { CallTarget } from "#core/target.ts";
+import type { CallDescriptor } from "#core/target.ts";
 import { isRecord } from "#util/primitives.ts";
 
 export interface JudgeGateOptions {
 	config: PermissionConfig;
 	ctx: ExtensionContext;
 	toolName: string;
-	target: CallTarget;
+	target: CallDescriptor;
 	rawInput: unknown;
 	cache: Map<string, JudgeOutcome>;
 	/** Reports judge progress, so the caller owns the status namespace. */
@@ -79,7 +79,7 @@ function cacheKey(config: PermissionConfig, input: JudgeInput): string {
 		config.judge.model,
 		input.toolName,
 		input.target.summary,
-		input.target.levels.join("\u0001"),
+		input.target.grantLevels.join("\u0001"),
 		requestHash,
 	].join("\u0000");
 }

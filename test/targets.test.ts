@@ -72,27 +72,27 @@ describe("deriveTarget", () => {
 	test("bash uses the command", () => {
 		expect(deriveTarget("bash", { command: "sudo rm -rf /tmp/x" })).toEqual({
 			summary: "sudo rm -rf /tmp/x",
-			levels: ["sudo", "sudo rm", "sudo rm -rf /tmp/x"],
+			grantLevels: ["sudo", "sudo rm", "sudo rm -rf /tmp/x"],
 		});
 	});
 
 	test("file tools use the path", () => {
-		expect(deriveTarget("write", { path: "src/a.ts" }).levels).toEqual(["src", "src/a.ts"]);
+		expect(deriveTarget("write", { path: "src/a.ts" }).grantLevels).toEqual(["src", "src/a.ts"]);
 	});
 
 	test("mcp nests server then tool", () => {
 		expect(deriveTarget("mcp", { server: "github", tool: "search_code" })).toEqual({
 			summary: "github:search_code",
-			levels: ["github", "github:search_code"],
+			grantLevels: ["github", "github:search_code"],
 		});
 	});
 
 	test("an unknown tool has one level: its name", () => {
-		expect(deriveTarget("todo", { items: [1] }).levels).toEqual(["todo"]);
+		expect(deriveTarget("todo", { items: [1] }).grantLevels).toEqual(["todo"]);
 	});
 
 	test("a missing input does not throw", () => {
-		expect(deriveTarget("bash", undefined).levels).toEqual(["(empty command)"]);
+		expect(deriveTarget("bash", undefined).grantLevels).toEqual(["(empty command)"]);
 	});
 });
 

@@ -1,27 +1,28 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { type AskDecision, FALLBACK_OPTIONS } from "#core/decision.ts";
+import type { PermissionDecision } from "#core/decision.ts";
 import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
-import type { CallTarget } from "#core/target.ts";
+import type { CallDescriptor } from "#core/target.ts";
+import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
 
 /** Fallback for RPC and any other UI that cannot host a custom component. */
 export async function askViaSelector(
 	ctx: ExtensionContext,
 	toolName: string,
-	target: CallTarget,
-): Promise<AskDecision> {
-	const labels = FALLBACK_OPTIONS.map((option) => `${option.key}. ${option.label}`);
+	target: CallDescriptor,
+): Promise<PermissionDecision> {
+	const labels = FALLBACK_CHOICES.map((option) => `${option.key}. ${option.label}`);
 	const choice = await ctx.ui.select(`Allow ${toolName}?\n${target.summary}`, labels);
-	const option = choice ? FALLBACK_OPTIONS[labels.indexOf(choice)] : undefined;
+	const option = choice ? FALLBACK_CHOICES[labels.indexOf(choice)] : undefined;
 	if (!option) return { decision: "deny" };
 
 	let remember: string | undefined;
 	let scope: GrantScope | undefined;
 	if (option.always) {
-		if (target.levels.length === 1) {
-			remember = target.levels[0];
+		if (target.grantLevels.length === 1) {
+			remember = target.grantLevels[0];
 		} else {
-			const level = await ctx.ui.select("Always yes for...", target.levels);
+			const level = await ctx.ui.select("Always yes for...", target.grantLevels);
 			if (!level) return { decision: "deny" };
 			remember = level;
 		}
