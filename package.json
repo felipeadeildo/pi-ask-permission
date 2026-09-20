@@ -33,7 +33,8 @@
 		"fmt": "oxfmt",
 		"fmt:check": "oxfmt --check",
 		"test": "bun test",
-		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test"
+		"verify": "bun run check && bun run lint && bun run fmt:check && bun run test",
+		"prepublishOnly": "bun run verify"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "0.85.1",

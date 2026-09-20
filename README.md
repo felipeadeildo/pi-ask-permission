@@ -94,10 +94,16 @@ Project grants load only in a trusted project. A repository must not be able to 
 ## Install
 
 ```bash
+pi install npm:pi-ask-permission
+```
+
+Or straight from the repository:
+
+```bash
 pi install git:github.com/felipeadeildo/pi-ask-permission
 ```
 
-Or clone the repo anywhere and point `~/.pi/agent/settings.json` at `src/index.ts`. There is an example at the bottom of this file.
+Or clone it anywhere and point `~/.pi/agent/settings.json` at `src/index.ts`. There is an example at the bottom of this file.
 
 ## Keys
 
