@@ -8,7 +8,7 @@
 		"pi",
 		"pi-package"
 	],
-	"homepage": "https://github.com/felipeadeildo/pi-ask-permission#readme",
+	"homepage": "https://pi.dev/packages/pi-ask-permission",
 	"bugs": "https://github.com/felipeadeildo/pi-ask-permission/issues",
 	"license": "MIT",
 	"author": {
