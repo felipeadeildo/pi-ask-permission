@@ -3,20 +3,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-	type AskConfig,
-	agentDir,
-	coerceConfig,
-	configPath,
-	DEFAULT_CONFIG,
-	headlessMode,
-	isAllowed,
-	isJudged,
-	loadConfig,
-	matchesPattern,
-	saveConfig,
-} from "../src/config.ts";
-import { coerceJudge, DEFAULT_JUDGE } from "../src/judge/config.ts";
+import { decodeConfig, decodeJudge } from "../src/core/config/decode.ts";
+import { headlessMode, isAllowed, isJudged, matchesPattern } from "../src/core/config/patterns.ts";
+import { DEFAULT_CONFIG, DEFAULT_JUDGE, type PermissionConfig } from "../src/core/config/schema.ts";
+import { configPath, loadConfig, saveConfig } from "../src/core/config/store.ts";
+import { agentDir } from "../src/identity.ts";
 
 describe("matchesPattern", () => {
 	test.each([
@@ -39,20 +30,20 @@ describe("matchesPattern", () => {
 	});
 });
 
-describe("coerceConfig", () => {
+describe("decodeConfig", () => {
 	test("an empty object yields the defaults", () => {
-		expect(coerceConfig({}, [])).toEqual(DEFAULT_CONFIG);
+		expect(decodeConfig({}, [])).toEqual(DEFAULT_CONFIG);
 	});
 
 	test("drops non-string allow entries and warns", () => {
 		const warnings: string[] = [];
-		expect(coerceConfig({ allow: ["bash", 3, ""] }, warnings).allow).toEqual(["bash"]);
+		expect(decodeConfig({ allow: ["bash", 3, ""] }, warnings).allow).toEqual(["bash"]);
 		expect(warnings).toHaveLength(1);
 	});
 
 	test("keeps a valid headless map and drops invalid modes", () => {
 		const warnings: string[] = [];
-		expect(coerceConfig({ headless: { bash: "deny", bad: "nope" } }, warnings).headless).toEqual({
+		expect(decodeConfig({ headless: { bash: "deny", bad: "nope" } }, warnings).headless).toEqual({
 			bash: "deny",
 		});
 		expect(warnings).toEqual(['headless.bad: expected "allow" or "deny"']);
@@ -60,19 +51,19 @@ describe("coerceConfig", () => {
 
 	test("rejects a bad followup wire", () => {
 		const warnings: string[] = [];
-		expect(coerceConfig({ followup: "carrier-pigeon" }, warnings).followup).toBe("result");
+		expect(decodeConfig({ followup: "carrier-pigeon" }, warnings).followup).toBe("result");
 		expect(warnings).toHaveLength(1);
 	});
 
 	test("rejects an array where an object is expected", () => {
 		const warnings: string[] = [];
-		expect(coerceConfig({ allow: "bash" }, warnings).allow).toEqual(DEFAULT_CONFIG.allow);
+		expect(decodeConfig({ allow: "bash" }, warnings).allow).toEqual(DEFAULT_CONFIG.allow);
 		expect(warnings).toHaveLength(1);
 	});
 
 	test("reads a typing block", () => {
 		const warnings: string[] = [];
-		expect(coerceConfig({ typing: { pause: 250, maxWait: 5000 } }, warnings).typing).toEqual({
+		expect(decodeConfig({ typing: { pause: 250, maxWait: 5000 } }, warnings).typing).toEqual({
 			pause: 250,
 			maxWait: 5000,
 		});
@@ -80,13 +71,13 @@ describe("coerceConfig", () => {
 	});
 
 	test("a missing typing.maxWait means no cap", () => {
-		expect(coerceConfig({}, []).typing.maxWait).toBeNull();
-		expect(coerceConfig({ typing: { maxWait: null } }, []).typing.maxWait).toBeNull();
+		expect(decodeConfig({}, []).typing.maxWait).toBeNull();
+		expect(decodeConfig({ typing: { maxWait: null } }, []).typing.maxWait).toBeNull();
 	});
 
 	test("drops invalid typing values and warns", () => {
 		const warnings: string[] = [];
-		expect(coerceConfig({ typing: { pause: -1, maxWait: "soon" } }, warnings).typing).toEqual(
+		expect(decodeConfig({ typing: { pause: -1, maxWait: "soon" } }, warnings).typing).toEqual(
 			DEFAULT_CONFIG.typing,
 		);
 		expect(warnings).toHaveLength(2);
@@ -94,13 +85,13 @@ describe("coerceConfig", () => {
 
 	test("rejects a non-object typing value", () => {
 		const warnings: string[] = [];
-		expect(coerceConfig({ typing: 5 }, warnings).typing).toEqual(DEFAULT_CONFIG.typing);
+		expect(decodeConfig({ typing: 5 }, warnings).typing).toEqual(DEFAULT_CONFIG.typing);
 		expect(warnings).toHaveLength(1);
 	});
 
 	test("an invalid higher-precedence value never widens access", () => {
 		const warnings: string[] = [];
-		const config = coerceConfig({ headless: 42, allow: null, yolo: "yes" }, warnings);
+		const config = decodeConfig({ headless: 42, allow: null, yolo: "yes" }, warnings);
 		expect(config).toEqual(DEFAULT_CONFIG);
 		expect(warnings).toHaveLength(3);
 	});
@@ -126,14 +117,14 @@ describe("isJudged", () => {
 	});
 });
 
-describe("coerceJudge", () => {
+describe("decodeJudge", () => {
 	test("an empty block yields the defaults", () => {
-		expect(coerceJudge({}, [])).toEqual(DEFAULT_JUDGE);
+		expect(decodeJudge({}, [])).toEqual(DEFAULT_JUDGE);
 	});
 
 	test("reads a full block without warnings", () => {
 		const warnings: string[] = [];
-		const judge = coerceJudge(
+		const judge = decodeJudge(
 			{
 				enabled: true,
 				backend: "pi",
@@ -182,7 +173,7 @@ describe("coerceJudge", () => {
 
 	test("drops invalid values and warns, never widening", () => {
 		const warnings: string[] = [];
-		const judge = coerceJudge(
+		const judge = decodeJudge(
 			{
 				enabled: "yes",
 				backend: "nope",
@@ -205,15 +196,15 @@ describe("coerceJudge", () => {
 		expect(warnings).toContain("judge.never: ignored entries that are not non-empty strings");
 	});
 
-	test("coerceConfig carries the judge block", () => {
-		const config = coerceConfig({ judge: { enabled: true } }, []);
+	test("decodeConfig carries the judge block", () => {
+		const config = decodeConfig({ judge: { enabled: true } }, []);
 		expect(config.judge.enabled).toBe(true);
 		expect(config.judge.model).toBe("jev-latest");
 	});
 
 	test("a non-object judge block falls back to the defaults", () => {
 		const warnings: string[] = [];
-		const config = coerceConfig({ judge: 5 }, warnings);
+		const config = decodeConfig({ judge: 5 }, warnings);
 		expect(config.judge).toEqual(DEFAULT_JUDGE);
 		expect(warnings).toContain("judge: expected an object");
 	});
@@ -229,13 +220,19 @@ describe("headlessMode", () => {
 	});
 
 	test("an exact tool beats a wildcard regardless of file order", () => {
-		const config: AskConfig = { ...DEFAULT_CONFIG, headless: { "*": "allow", bash: "deny" } };
+		const config: PermissionConfig = {
+			...DEFAULT_CONFIG,
+			headless: { "*": "allow", bash: "deny" },
+		};
 		expect(headlessMode(config, "bash")).toBe("deny");
 		expect(headlessMode(config, "write")).toBe("allow");
 	});
 
 	test("a wildcard beats * regardless of file order", () => {
-		const config: AskConfig = { ...DEFAULT_CONFIG, headless: { "mcp_*": "allow", "*": "deny" } };
+		const config: PermissionConfig = {
+			...DEFAULT_CONFIG,
+			headless: { "mcp_*": "allow", "*": "deny" },
+		};
 		expect(headlessMode(config, "mcp_github")).toBe("allow");
 		expect(headlessMode(config, "bash")).toBe("deny");
 	});

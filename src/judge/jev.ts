@@ -4,7 +4,7 @@
  * extension registers an auth-only `typesafe` provider so `/login typesafe`
  * stores the key through pi, and calls the System One endpoint directly.
  */
-import { describe, isRecord } from "../util.ts";
+import { describe, isRecord } from "../util/primitives.ts";
 import { buildJudgeQuestions, buildJudgeState } from "./state.ts";
 import {
 	JudgeError,

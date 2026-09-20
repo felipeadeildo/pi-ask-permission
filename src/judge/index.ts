@@ -5,9 +5,9 @@
  */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
-import { describe } from "../util.ts";
+import type { JudgeConfig } from "../core/config/schema.ts";
+import { describe } from "../util/primitives.ts";
 import { composeVerdict, judgeRisk, neverMatches } from "./compose.ts";
-import type { JudgeConfig } from "./config.ts";
 import { createJevBackend, type JudgeFetch } from "./jev.ts";
 import { createPiBackend } from "./pi-model.ts";
 import {

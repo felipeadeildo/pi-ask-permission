@@ -10,15 +10,9 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { CONFIG_DIR_NAME, isToolCallEventType } from "@earendil-works/pi-coding-agent";
 
 import { registerBashTimer } from "./bash-timer.ts";
-import {
-	type AskConfig,
-	grantsPath,
-	headlessMode,
-	isAllowed,
-	loadConfig,
-	projectGrantsPath,
-	saveConfig,
-} from "./config.ts";
+import { headlessMode, isAllowed } from "./core/config/patterns.ts";
+import type { PermissionConfig } from "./core/config/schema.ts";
+import { grantsPath, loadConfig, projectGrantsPath, saveConfig } from "./core/config/store.ts";
 import { AskDialog } from "./dialog.ts";
 import {
 	type GrantScope,
@@ -30,6 +24,7 @@ import {
 	loadGrants,
 	saveGrants,
 } from "./grants.ts";
+import { NAME } from "./identity.ts";
 import { appendJudgeEntry, judgeEntryWorthShowing, registerJudgeEntry } from "./judge/entry.ts";
 import { judgeGate } from "./judge/gate.ts";
 import {
@@ -40,7 +35,6 @@ import {
 	TYPESAFE_PROVIDER,
 } from "./judge/index.ts";
 import { judgeLogText, judgeVerdictText, remember, warnOnce } from "./judge/report.ts";
-import { NAME } from "./name.ts";
 import type { AskDecision } from "./options.ts";
 import { editFailure } from "./preflight.ts";
 import { isReadOnlyCommand } from "./readonly.ts";
@@ -354,7 +348,7 @@ function registerTypesafeProvider(pi: ExtensionAPI): void {
 
 interface RunJudgeOptions {
 	pi: ExtensionAPI;
-	config: AskConfig;
+	config: PermissionConfig;
 	ctx: ExtensionContext;
 	toolName: string;
 	target: CallTarget;
@@ -461,7 +455,7 @@ async function ask(
 }
 
 function headlessRefusal(
-	config: AskConfig,
+	config: PermissionConfig,
 	toolName: string,
 ): { block: true; reason: string } | undefined {
 	if (headlessMode(config, toolName) === "allow") return undefined;

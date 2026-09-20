@@ -2,9 +2,13 @@ import { describe, expect, test } from "bun:test";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { type AskConfig, DEFAULT_CONFIG } from "../src/config.ts";
+import {
+	DEFAULT_CONFIG,
+	defaultJudge,
+	type JudgeConfig,
+	type PermissionConfig,
+} from "../src/core/config/schema.ts";
 import { composeVerdict, judgeRisk, neverMatches, RISK_WEIGHTS } from "../src/judge/compose.ts";
-import { defaultJudge, type JudgeConfig } from "../src/judge/config.ts";
 import { judgeGate } from "../src/judge/gate.ts";
 import { judgeToolCall, probeJudge } from "../src/judge/index.ts";
 import { createJevBackend, parseJevResponse, toAnswers } from "../src/judge/jev.ts";
@@ -553,7 +557,7 @@ function allowMessage(): unknown {
 	};
 }
 
-function askConfig(judge: Partial<JudgeConfig> = {}): AskConfig {
+function askConfig(judge: Partial<JudgeConfig> = {}): PermissionConfig {
 	return { ...DEFAULT_CONFIG, judge: { ...defaultJudge(), ...judge } };
 }
 

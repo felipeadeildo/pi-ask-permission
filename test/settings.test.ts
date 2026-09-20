@@ -2,8 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
-import { DEFAULT_CONFIG } from "../src/config.ts";
-import { defaultJudge } from "../src/judge/config.ts";
+import { DEFAULT_CONFIG, defaultJudge } from "../src/core/config/schema.ts";
 import { buildJudgeSettings, JUDGE_SETTING_IDS, judgeValues } from "../src/judge/settings.ts";
 import { judgeToggleItem } from "../src/settings.ts";
 

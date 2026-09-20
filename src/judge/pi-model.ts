@@ -7,7 +7,7 @@ import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
  */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
-import { describe, isRecord } from "../util.ts";
+import { describe, isRecord } from "../util/primitives.ts";
 import { buildJudgeQuestions, buildJudgeState } from "./state.ts";
 import {
 	JudgeError,

@@ -1,10 +1,10 @@
-import type { CallTarget } from "../targets.ts";
 /**
  * The judge contract. A backend turns one tool call into typed signals; compose
  * in `compose.ts` turns those signals into a decision. Nothing here talks to a
  * network, so backends stay swappable and testable.
  */
-import type { JudgeBackendId } from "./config.ts";
+import type { JudgeBackendId } from "../core/config/schema.ts";
+import type { CallTarget } from "../targets.ts";
 
 /** The call, the operator policy, and the context a backend may judge it with. */
 export interface JudgeInput {

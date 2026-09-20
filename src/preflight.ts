@@ -7,7 +7,7 @@ import {
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
-import { describe } from "./util.ts";
+import { describe } from "./util/primitives.ts";
 
 /**
  * The edit tool with a no-op write, so `execute` runs the real checks and

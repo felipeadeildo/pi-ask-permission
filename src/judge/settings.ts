@@ -6,7 +6,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { SettingItem } from "@earendil-works/pi-tui";
 
-import type { JudgeBackendId, JudgeConfig, JudgeFallback } from "./config.ts";
+import type { JudgeBackendId, JudgeConfig, JudgeFallback } from "../core/config/schema.ts";
 import { PickerList } from "./picker.ts";
 import { detectPolicyPreset, getPolicyPreset, POLICY_PRESETS, policyWarning } from "./policy.ts";
 

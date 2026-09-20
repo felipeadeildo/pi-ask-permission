@@ -6,7 +6,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 
-import { NAME } from "../name.ts";
+import { NAME } from "../identity.ts";
 import { judgeSignalText, judgeVerdictText, oneLine } from "./report.ts";
 import type { JudgeRecord } from "./types.ts";
 

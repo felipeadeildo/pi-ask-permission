@@ -9,20 +9,15 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, type SettingItem, SettingsList, Text } from "@earendil-works/pi-tui";
 
-import {
-	type AskConfig,
-	grantsPath,
-	isFollowupWire,
-	isHeadlessMode,
-	projectGrantsPath,
-} from "./config.ts";
+import { isFollowupDelivery, isHeadlessMode, type PermissionConfig } from "./core/config/schema.ts";
+import { grantsPath, projectGrantsPath } from "./core/config/store.ts";
 import { type GrantScope, GRANT_SCOPES } from "./grants.ts";
+import { NAME } from "./identity.ts";
 import { POLICY_TEMPLATE, policyWarning } from "./judge/policy.ts";
 import { buildJudgeSettings, type JudgeSettings, judgeValues } from "./judge/settings.ts";
-import { NAME } from "./name.ts";
 
 export interface SettingsState {
-	config: AskConfig;
+	config: PermissionConfig;
 	grants: Record<GrantScope, Set<string>>;
 	save: () => void;
 	/** Clears cached judge verdicts after any judge setting changes. */
@@ -158,7 +153,7 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 				return;
 			}
 
-			if (id === "followup" && isFollowupWire(value)) state.config.followup = value;
+			if (id === "followup" && isFollowupDelivery(value)) state.config.followup = value;
 			else if (id === "headless" && isHeadlessMode(value)) state.config.headless = value;
 			else if (id === "yolo") state.config.yolo = value === "on";
 			state.save();
@@ -184,7 +179,7 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 	return request;
 }
 
-function followupItem(config: AskConfig): SettingItem {
+function followupItem(config: PermissionConfig): SettingItem {
 	return {
 		id: "followup",
 		label: "Followup wire",
@@ -195,7 +190,7 @@ function followupItem(config: AskConfig): SettingItem {
 }
 
 /** The toggle lives here, on the parent row, so there is no duplicate on the child page. */
-export function judgeToggleItem(config: AskConfig): SettingItem {
+export function judgeToggleItem(config: PermissionConfig): SettingItem {
 	return {
 		id: "judge.enabled",
 		label: "AI approvals (judge)",
@@ -207,7 +202,7 @@ export function judgeToggleItem(config: AskConfig): SettingItem {
 	};
 }
 
-function headlessItem(config: AskConfig): SettingItem {
+function headlessItem(config: PermissionConfig): SettingItem {
 	return {
 		id: "headless",
 		label: "No-UI behavior",
@@ -217,7 +212,7 @@ function headlessItem(config: AskConfig): SettingItem {
 	};
 }
 
-function yoloItem(config: AskConfig): SettingItem {
+function yoloItem(config: PermissionConfig): SettingItem {
 	return {
 		id: "yolo",
 		label: "Yolo mode",
@@ -235,7 +230,7 @@ function piModelIds(ctx: ExtensionContext): string[] {
 }
 
 export function statusText(
-	config: AskConfig,
+	config: PermissionConfig,
 	grants: Record<GrantScope, Set<string>>,
 	configFile: string,
 	cwd: string,
@@ -256,7 +251,7 @@ export function statusText(
 	].join("\n");
 }
 
-function judgeLine(config: AskConfig): string {
+function judgeLine(config: PermissionConfig): string {
 	const judge = config.judge;
 	if (!judge.enabled) return `judge: off \u00b7 ${judge.backend}/${judge.model}`;
 

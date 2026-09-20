@@ -4,7 +4,7 @@
  */
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { NAME } from "../name.ts";
+import { NAME } from "../identity.ts";
 import type { JudgeRecord } from "./types.ts";
 
 /** How many decisions the session keeps for `/perm judge log`. */

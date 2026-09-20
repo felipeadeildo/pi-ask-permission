@@ -7,14 +7,15 @@ import { createHash } from "node:crypto";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { type AskConfig, isJudged } from "../config.ts";
+import { isJudged } from "../core/config/patterns.ts";
+import type { PermissionConfig } from "../core/config/schema.ts";
 import type { CallTarget } from "../targets.ts";
-import { isRecord } from "../util.ts";
+import { isRecord } from "../util/primitives.ts";
 import { createJudgeBackend, judgeToolCall, TYPESAFE_PROVIDER } from "./index.ts";
 import type { JudgeInput, JudgeOutcome } from "./types.ts";
 
 export interface JudgeGateOptions {
-	config: AskConfig;
+	config: PermissionConfig;
 	ctx: ExtensionContext;
 	toolName: string;
 	target: CallTarget;
@@ -69,7 +70,7 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 }
 
 /** The verdict also depends on the request it was judged against, so hash that in. */
-function cacheKey(config: AskConfig, input: JudgeInput): string {
+function cacheKey(config: PermissionConfig, input: JudgeInput): string {
 	const request = input.lastUserMessage ?? "";
 	const requestHash = createHash("sha1").update(request).digest("hex").slice(0, 16);
 

@@ -3,8 +3,8 @@
  * them into a decision with plain arithmetic, so the operator can read the rule
  * and change a number instead of rewriting a prompt.
  */
-import { matchesPattern } from "../config.ts";
-import type { JudgeConfig } from "./config.ts";
+import { matchesPattern } from "../core/config/patterns.ts";
+import type { JudgeConfig } from "../core/config/schema.ts";
 import type { JudgeAnswers } from "./types.ts";
 
 /** Relative weight of each risk signal. Reversibility dominates on purpose. */
