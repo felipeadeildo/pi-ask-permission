@@ -24,6 +24,8 @@ permission · bash
 
 If you are mid-sentence in the editor when a call arrives, the dialog waits for you to pause. The footer reads `waiting for you to finish typing` while it does, and by default it waits however long that takes. Set `typing.maxWait` to cap it.
 
+Or hand the decision to a judge model first. See [Delegate to a judge](#delegate-to-a-judge-ai-approvals).
+
 ## Why
 
 Two-button prompts only say yes or no. Say the agent runs `npm install` and you wanted pnpm. Pressing yes runs the wrong command. Pressing no leaves the agent guessing why, so the explanation arrives a turn late and detached from the decision.
@@ -72,6 +74,106 @@ The narrowest level is preselected, so `enter` grants exactly what you were look
 
 The files are plain JSON, `{ "bash": ["pnpm test"] }`, and grants are matched by tool and level, so a `bash` grant never widens `write`. Project grants load only in a trusted project, so a repository cannot ship a grants file that widens its own permissions.
 
+## Delegate to a judge (AI approvals)
+
+Off by default. When you turn it on, a judge model gets first refusal on a call: a confident approval runs it, a confident denial blocks it, and anything uncertain falls through to the dialog. The judge never fails open — a timeout, an error, or a missing key comes back to you by default.
+
+Two backends:
+
+- **Jev** (TypeSafe's System One model) is asked typed questions and answers with a verdict, a probability distribution, and a confidence. Fast and cheap.
+- **A pi model** reuses any model you already configured, asking it for strict JSON. A reply that is not valid JSON counts as no judgement.
+
+### Set up Jev
+
+Log in once. The extension registers an auth-only `typesafe` provider, so the key is stored through pi and Jev never appears in the model picker.
+
+```bash
+/login typesafe
+```
+
+`TYPESAFE_API_KEY` works too.
+
+### Write a policy
+
+The policy is the rulebook the judge reads, and it is what "delegate" means: say what may run, what must always ask, and what to do in doubt. Turn on _AI approvals (judge)_ in `/perm` and a _Policy_ row appears; pick a preset or write your own.
+
+```text
+# May run without asking
+- Running tests, linters, type checks, and builds
+- git status, diff, log
+
+# Must always ask first
+- sudo, or anything that changes system-wide state
+- Anything that reaches the network
+- Deleting files outside the project
+
+# When in doubt
+Ask me.
+```
+
+### Try it safely
+
+Turn on _Dry run_ first. The judge still asks you, but it tells you what it would have decided, so you can check its judgement against yours before letting it act.
+
+If judge calls come back as `the judge could not decide: no response from ...`, run `/perm judge test`. It makes one real request with a generous timeout and reports the model, the latency, and the exact error, so a missing key, a bad model name, a blocked network, and a slow link are told apart.
+
+### Configure
+
+Turn on _AI approvals (judge)_ in `/perm` and its settings appear indented beneath it:
+
+| Setting              | Does                                                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| AI approvals         | Turn the judge on or off                                                                           |
+| Judge                | Jev, or any model from pi                                                                          |
+| Model                | The model, such as `jev-latest`                                                                    |
+| When confident       | Approve or deny, or approve only                                                                   |
+| When unsure          | Ask you, allow, or deny                                                                            |
+| When it can't answer | Ask you, allow, or deny (asking is safest)                                                         |
+| Tools it may judge   | Bash only, bash and file writes, or every tool; hand-edited patterns in config.json read as Custom |
+| Policy               | Presets, or a full editor                                                                          |
+| Dry run              | Show the verdict, still ask                                                                        |
+| Judge with no UI     | Also judge in print, JSON, and subagent runs                                                       |
+| Remember approvals   | Treat a judge approval as a session grant                                                          |
+
+The raw config:
+
+```json
+{
+	"judge": {
+		"enabled": true,
+		"backend": "jev",
+		"model": "jev-latest",
+		"tools": ["bash"],
+		"never": [],
+		"thresholds": { "allow": 0.85, "deny": 0.8 },
+		"intentFloor": 0.6,
+		"riskCeiling": 0.45,
+		"onUncertain": "ask",
+		"autoDeny": true,
+		"onError": "ask",
+		"headless": false,
+		"dryRun": false,
+		"grant": false,
+		"timeoutMs": 5000,
+		"cache": true,
+		"includeConversation": true,
+		"policy": ""
+	}
+}
+```
+
+### How the judge decides
+
+The judge answers a fixed battery of atomic questions — a verdict, whether the call serves your request, how reversible it is, whether it touches secrets, and whether it leaves the project — and code combines the answers. There is no broad "is this safe?" prompt.
+
+```text
+risk = 0.45 × reversibility + 0.30 × sensitive + 0.25 × outside
+```
+
+A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, `risk` is at or below `riskCeiling`, and intent clears `intentFloor`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `onUncertain` says otherwise. The `never` list is checked in code first and always falls through to you.
+
+The policy is authoritative and the tool call is treated as untrusted data, so a command cannot talk its way past `never`.
+
 ## Install
 
 ```bash
@@ -110,6 +212,8 @@ One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves
 }
 ```
 
+The file also carries the full `judge` block, disabled by default; see [Delegate to a judge](#delegate-to-a-judge-ai-approvals).
+
 `allow` lists the tools that never prompt. Wildcards work, so `mcp_*` covers a family. Everything else asks, including tools registered later.
 
 `headless` decides when there is nobody to ask: print mode, JSON mode, or a subagent. It takes one mode or a per-tool map. Specificity wins over file order, so an exact name beats a wildcard and a wildcard beats `*`.
@@ -130,14 +234,18 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 
 ## Commands
 
-| Command               | Does                                                    |
-| --------------------- | ------------------------------------------------------- |
-| `/perm`               | settings dialog for `followup`, `headless`, and `yolo`  |
-| `/perm status`        | resolved config, grant counts per scope, and file paths |
-| `/perm reset`         | forget this session's grants                            |
-| `/perm reset project` | delete the project grants file                          |
-| `/perm reset global`  | delete the global grants file                           |
-| `/perm reset all`     | clear all three scopes                                  |
+| Command               | Does                                                                     |
+| --------------------- | ------------------------------------------------------------------------ |
+| `/perm`               | settings dialog for the followup wire, judge, headless, and yolo         |
+| `/perm status`        | resolved config, grant counts per scope, and file paths                  |
+| `/perm judge`         | open the AI-approval settings                                            |
+| `/perm judge on`      | turn AI approvals on (also `off`)                                        |
+| `/perm judge log`     | the most recent judge decisions this session                             |
+| `/perm judge test`    | make one real judge request and report the model, latency, and any error |
+| `/perm reset`         | forget this session's grants                                             |
+| `/perm reset project` | delete the project grants file                                           |
+| `/perm reset global`  | delete the global grants file                                            |
+| `/perm reset all`     | clear all three scopes                                                   |
 
 ## How a call is decided
 
@@ -145,8 +253,9 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 2. The tool is in `allow`, allow.
 3. A grant matches this tool and level, allow.
 4. `readOnlyBash` is on and the bash command only reads, allow.
-5. There is a UI, ask.[^edit]
-6. There is no UI, `headless` decides. The default denies.
+5. AI approvals are on and the tool is judged, ask the judge. A confident allow runs, a confident deny blocks, and anything uncertain continues.
+6. There is a UI, ask.[^edit]
+7. There is no UI, `headless` decides. With _Judge with no UI_ on, the judge gets the same first refusal first, then `headless` decides anything it could not.
 
 [^edit]: An `edit` whose `oldText` cannot match the file is blocked with the matcher's own error, no dialog. Asking about an edit that is already going to fail only costs a keystroke.
 
@@ -157,6 +266,8 @@ It is a dialog, not a policy language. No wildcard rules, no path canonicalizati
 A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`, and the whole chain, because the depth picker reads text rather than parsing the shell. Grants on chains are coarse at the head and exact at the tail.
 
 `allow` matches a tool name, not an argument, so allowing `bash` permits every bash command.
+
+The judge is a model, so it adds judgement, not a guarantee. It only ever narrows what reaches the dialog: a `never` pattern, a deterministic block, or an uncertain verdict still comes to you. It is not an audit trail for compliance, and it reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
 
 If you want deterministic rules with no human in the loop, this is the wrong tool.
 

@@ -11,10 +11,12 @@ import {
 	DEFAULT_CONFIG,
 	headlessMode,
 	isAllowed,
+	isJudged,
 	loadConfig,
 	matchesPattern,
 	saveConfig,
 } from "../src/config.ts";
+import { coerceJudge, DEFAULT_JUDGE } from "../src/judge/config.ts";
 
 describe("matchesPattern", () => {
 	test.each([
@@ -110,6 +112,110 @@ describe("isAllowed", () => {
 		expect(isAllowed(config, "read")).toBe(true);
 		expect(isAllowed(config, "mcp_github")).toBe(true);
 		expect(isAllowed(config, "bash")).toBe(false);
+	});
+});
+
+describe("isJudged", () => {
+	test("is false until the judge is enabled and the tool matches", () => {
+		const off = { ...DEFAULT_CONFIG, judge: { ...DEFAULT_JUDGE, tools: ["bash"] } };
+		expect(isJudged(off, "bash")).toBe(false);
+
+		const on = { ...off, judge: { ...off.judge, enabled: true } };
+		expect(isJudged(on, "bash")).toBe(true);
+		expect(isJudged(on, "write")).toBe(false);
+	});
+});
+
+describe("coerceJudge", () => {
+	test("an empty block yields the defaults", () => {
+		expect(coerceJudge({}, [])).toEqual(DEFAULT_JUDGE);
+	});
+
+	test("reads a full block without warnings", () => {
+		const warnings: string[] = [];
+		const judge = coerceJudge(
+			{
+				enabled: true,
+				backend: "pi",
+				model: "anthropic/claude",
+				tools: ["bash", "write"],
+				never: ["rm -rf*"],
+				thresholds: { allow: 0.9, deny: 0.7 },
+				intentFloor: 0.5,
+				riskCeiling: 0.3,
+				onUncertain: "deny",
+				autoDeny: false,
+				onError: "deny",
+				headless: true,
+				dryRun: true,
+				grant: true,
+				cache: false,
+				includeConversation: false,
+				timeoutMs: 500,
+				policy: "be careful",
+			},
+			warnings,
+		);
+
+		expect(warnings).toEqual([]);
+		expect(judge).toEqual({
+			enabled: true,
+			backend: "pi",
+			model: "anthropic/claude",
+			tools: ["bash", "write"],
+			never: ["rm -rf*"],
+			thresholds: { allow: 0.9, deny: 0.7 },
+			intentFloor: 0.5,
+			riskCeiling: 0.3,
+			onUncertain: "deny",
+			autoDeny: false,
+			onError: "deny",
+			headless: true,
+			dryRun: true,
+			grant: true,
+			cache: false,
+			includeConversation: false,
+			timeoutMs: 500,
+			policy: "be careful",
+		});
+	});
+
+	test("drops invalid values and warns, never widening", () => {
+		const warnings: string[] = [];
+		const judge = coerceJudge(
+			{
+				enabled: "yes",
+				backend: "nope",
+				thresholds: { allow: 2 },
+				tools: "bash",
+				never: ["ok", 3, ""],
+			},
+			warnings,
+		);
+
+		expect(judge.enabled).toBe(false);
+		expect(judge.backend).toBe("jev");
+		expect(judge.thresholds.allow).toBe(DEFAULT_JUDGE.thresholds.allow);
+		expect(judge.tools).toEqual([]);
+		expect(judge.never).toEqual(["ok"]);
+		expect(warnings).toContain("judge.enabled: expected a boolean");
+		expect(warnings).toContain('judge.backend: expected "jev" or "pi"');
+		expect(warnings).toContain("judge.thresholds.allow: expected a number from 0 to 1");
+		expect(warnings).toContain("judge.tools: expected an array of tool name patterns");
+		expect(warnings).toContain("judge.never: ignored entries that are not non-empty strings");
+	});
+
+	test("coerceConfig carries the judge block", () => {
+		const config = coerceConfig({ judge: { enabled: true } }, []);
+		expect(config.judge.enabled).toBe(true);
+		expect(config.judge.model).toBe("jev-latest");
+	});
+
+	test("a non-object judge block falls back to the defaults", () => {
+		const warnings: string[] = [];
+		const config = coerceConfig({ judge: 5 }, warnings);
+		expect(config.judge).toEqual(DEFAULT_JUDGE);
+		expect(warnings).toContain("judge: expected an object");
 	});
 });
 

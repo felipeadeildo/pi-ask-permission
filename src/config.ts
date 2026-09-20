@@ -6,7 +6,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { describe, isRecord } from "./util.ts";
+import { coerceJudge, DEFAULT_JUDGE, defaultJudge, type JudgeConfig } from "./judge/config.ts";
+import { describe, isDuration, isRecord } from "./util.ts";
 
 export type HeadlessMode = "allow" | "deny";
 
@@ -31,6 +32,8 @@ export interface AskConfig {
 	readOnlyBash: boolean;
 	/** How a dialog waits for the user to stop typing. */
 	typing: TypingConfig;
+	/** Delegating approval to a judge model. */
+	judge: JudgeConfig;
 }
 
 export const DEFAULT_CONFIG: AskConfig = {
@@ -40,6 +43,7 @@ export const DEFAULT_CONFIG: AskConfig = {
 	yolo: false,
 	readOnlyBash: true,
 	typing: { pause: 1000, maxWait: null },
+	judge: DEFAULT_JUDGE,
 };
 
 export interface LoadedConfig {
@@ -156,6 +160,12 @@ export function coerceConfig(raw: Record<string, unknown>, warnings: string[]): 
 		warnings.push("typing: expected an object with pause and maxWait");
 	}
 
+	if (isRecord(raw.judge)) {
+		config.judge = coerceJudge(raw.judge, warnings);
+	} else if (raw.judge !== undefined) {
+		warnings.push("judge: expected an object");
+	}
+
 	return config;
 }
 
@@ -172,10 +182,6 @@ function coerceTyping(raw: Record<string, unknown>, warnings: string[]): TypingC
 		warnings.push("typing.maxWait: expected milliseconds or null");
 
 	return typing;
-}
-
-function isDuration(value: unknown): value is number {
-	return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 /** `*` matches any run of characters, `?` exactly one. */
@@ -196,6 +202,13 @@ export function matchesPattern(pattern: string, value: string): boolean {
 
 export function isAllowed(config: AskConfig, toolName: string): boolean {
 	return config.allow.some((pattern) => matchesPattern(pattern, toolName));
+}
+
+/** True when the judge may decide this tool at all. */
+export function isJudged(config: AskConfig, toolName: string): boolean {
+	return (
+		config.judge.enabled && config.judge.tools.some((pattern) => matchesPattern(pattern, toolName))
+	);
 }
 
 /**
@@ -231,6 +244,7 @@ function defaults(): AskConfig {
 		...DEFAULT_CONFIG,
 		allow: [...DEFAULT_CONFIG.allow],
 		typing: { ...DEFAULT_CONFIG.typing },
+		judge: defaultJudge(),
 	};
 }
 

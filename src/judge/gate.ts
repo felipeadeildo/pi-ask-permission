@@ -1,0 +1,117 @@
+/**
+ * The pipeline step: decides whether the judge applies to this call, builds its
+ * input from the session, and memoizes a clean verdict. Everything here is about
+ * turning live `ExtensionContext` state into the pure `judgeToolCall` contract.
+ */
+import { createHash } from "node:crypto";
+
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+
+import { type AskConfig, isJudged } from "../config.ts";
+import type { CallTarget } from "../targets.ts";
+import { isRecord } from "../util.ts";
+import { createJudgeBackend, judgeToolCall, TYPESAFE_PROVIDER } from "./index.ts";
+import type { JudgeInput, JudgeOutcome } from "./types.ts";
+
+export interface JudgeGateOptions {
+	config: AskConfig;
+	ctx: ExtensionContext;
+	toolName: string;
+	target: CallTarget;
+	rawInput: unknown;
+	cache: Map<string, JudgeOutcome>;
+	/** Reports judge progress, so the caller owns the status namespace. */
+	onStatus: (status: string | undefined) => void;
+}
+
+export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome | undefined> {
+	const { config, ctx, toolName, target } = options;
+	if (!isJudged(config, toolName)) return undefined;
+	// Without a UI the judge only runs when the operator opted into headless judging.
+	if (!ctx.hasUI && !config.judge.headless) return undefined;
+
+	const input: JudgeInput = {
+		toolName,
+		target,
+		rawInput: options.rawInput,
+		cwd: ctx.cwd,
+		projectTrusted: ctx.isProjectTrusted(),
+		lastUserMessage: config.judge.includeConversation ? lastUserMessage(ctx) : undefined,
+		policy: config.judge.policy,
+		includeConversation: config.judge.includeConversation,
+	};
+
+	const key = cacheKey(config, input);
+	if (config.judge.cache) {
+		const cached = options.cache.get(key);
+		if (cached) return cached;
+	}
+
+	const backend = createJudgeBackend(config.judge, {
+		resolveApiKey: () => ctx.modelRegistry.getApiKeyForProvider(TYPESAFE_PROVIDER),
+		modelRegistry: ctx.modelRegistry,
+	});
+
+	options.onStatus(`judge: considering ${toolName}`);
+	let outcome: JudgeOutcome;
+	try {
+		outcome = await judgeToolCall({ config: config.judge, backend, input, signal: ctx.signal });
+	} finally {
+		options.onStatus(undefined);
+	}
+
+	// Cache only a clean verdict; a timeout or network error deserves another try.
+	if (config.judge.cache && outcome.record && outcome.record.error === undefined) {
+		options.cache.set(key, outcome);
+	}
+
+	return outcome;
+}
+
+/** The verdict also depends on the request it was judged against, so hash that in. */
+function cacheKey(config: AskConfig, input: JudgeInput): string {
+	const request = input.lastUserMessage ?? "";
+	const requestHash = createHash("sha1").update(request).digest("hex").slice(0, 16);
+
+	return [
+		config.judge.backend,
+		config.judge.model,
+		input.toolName,
+		input.target.summary,
+		input.target.levels.join("\u0001"),
+		requestHash,
+	].join("\u0000");
+}
+
+function lastUserMessage(ctx: ExtensionContext): string | undefined {
+	const entries = ctx.sessionManager.buildContextEntries();
+
+	for (let index = entries.length - 1; index >= 0; index--) {
+		const entry = entries[index];
+		if (entry?.type !== "message") continue;
+
+		const message = entry.message as { role?: unknown; content?: unknown };
+		if (message.role !== "user") continue;
+
+		const text = contentText(message.content);
+		if (text) return text;
+	}
+
+	return undefined;
+}
+
+function contentText(content: unknown): string | undefined {
+	if (typeof content === "string") return content.trim() || undefined;
+	if (!Array.isArray(content)) return undefined;
+
+	const text = content
+		.filter(
+			(part): part is { type: string; text: string } =>
+				isRecord(part) && part.type === "text" && typeof part.text === "string",
+		)
+		.map((part) => part.text)
+		.join("\n")
+		.trim();
+
+	return text || undefined;
+}
