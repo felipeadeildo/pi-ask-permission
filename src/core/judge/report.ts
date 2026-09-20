@@ -63,7 +63,6 @@ export function judgeSignalText(record: JudgeRecord): string {
 	const answers = record.answers;
 	const parts: string[] = [];
 
-	if (answers.intent_match !== undefined) parts.push(`intent ${answers.intent_match.toFixed(2)}`);
 	if (answers.reversibility !== undefined)
 		parts.push(`reversibility ${answers.reversibility.toFixed(2)}`);
 	if (answers.sensitive_access !== undefined)

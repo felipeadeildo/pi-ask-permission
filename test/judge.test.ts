@@ -29,7 +29,6 @@ import {
 function answers(overrides: Partial<JudgeAnswers> = {}): JudgeAnswers {
 	return {
 		verdict: { choice: "allow", confidence: 0.95 },
-		intent_match: 0.9,
 		reversibility: 0.2,
 		sensitive_access: 0.05,
 		outside_workspace: 0.1,
@@ -43,9 +42,7 @@ function judgeInput(overrides: Partial<JudgeInput> = {}): JudgeInput {
 		target: { summary: "pnpm test", grantLevels: ["pnpm", "pnpm test"] },
 		rawInput: { command: "pnpm test" },
 		cwd: "/repo",
-		lastUserMessage: "run the tests",
 		policy: "allow tests",
-		includeConversation: true,
 		...overrides,
 	};
 }
@@ -88,11 +85,6 @@ describe("composeVerdict", () => {
 		expect(composeVerdict(config, answers()).decision).toBe("uncertain");
 	});
 
-	test("defers when intent is below the floor", () => {
-		const result = composeVerdict(defaultJudge(), answers({ intent_match: 0.1 }));
-		expect(result.decision).toBe("uncertain");
-	});
-
 	test("defers when a signal is missing", () => {
 		const result = composeVerdict(defaultJudge(), answers({ reversibility: undefined }));
 		expect(result.decision).toBe("uncertain");
@@ -133,7 +125,6 @@ describe("buildJudgeState", () => {
 	test("carries policy, call, project root, and the request", () => {
 		const state = buildJudgeState(judgeInput());
 		expect(state.policy).toBe("allow tests");
-		expect(state.request).toEqual({ last_user_message: "run the tests" });
 		expect((state.call as Record<string, unknown>).tool).toBe("bash");
 		expect((state.project as Record<string, unknown>).root).toBe("/repo");
 	});
@@ -142,11 +133,6 @@ describe("buildJudgeState", () => {
 		const state = buildJudgeState(judgeInput());
 		expect(Object.keys(state.call as Record<string, unknown>)).toEqual(["tool", "input"]);
 		expect(Object.keys(state.project as Record<string, unknown>)).toEqual(["root"]);
-	});
-
-	test("omits the request when conversation is off", () => {
-		const state = buildJudgeState(judgeInput({ includeConversation: false }));
-		expect(state.request).toBeUndefined();
 	});
 
 	test("caps an oversized input", () => {
@@ -159,21 +145,13 @@ describe("buildJudgeState", () => {
 
 describe("buildJudgeQuestions", () => {
 	test("asks the fixed battery", () => {
-		const questions = buildJudgeQuestions(judgeInput());
+		const questions = buildJudgeQuestions();
 		expect(Object.keys(questions)).toEqual([
 			"verdict",
-			"intent_match",
 			"reversibility",
 			"sensitive_access",
 			"outside_workspace",
 		]);
-	});
-
-	test("looks at the request only when there is one", () => {
-		const withRequest = buildJudgeQuestions(judgeInput());
-		const without = buildJudgeQuestions(judgeInput({ includeConversation: false }));
-		expect(JSON.stringify(withRequest.intent_match)).toContain("request.last_user_message");
-		expect(JSON.stringify(without.intent_match)).not.toContain("request.last_user_message");
 	});
 });
 
@@ -198,7 +176,6 @@ describe("parseJevResponse", () => {
 				model: "jev-1.13.0",
 				answers: {
 					verdict: { type: "choice", choice: "allow", confidence: 0.9 },
-					intent_match: { type: "noul", noul: 0.8 },
 					reversibility: { type: "score", score: 1.5 },
 					sensitive_access: { type: "noul", noul: 0.1 },
 					outside_workspace: { type: "noul", noul: 0.2 },
@@ -507,7 +484,6 @@ describe("pi model parsing", () => {
 		const mapped = toAnswersFromJson({
 			verdict: "allow",
 			confidence: 0.8,
-			intent_match: 0.7,
 			reversibility: 1,
 			sensitive_access: 0.1,
 			outside_workspace: 0.2,
@@ -550,7 +526,7 @@ function allowMessage(): unknown {
 		content: [
 			{
 				type: "text",
-				text: '{"verdict":"allow","confidence":0.99,"intent_match":0.9,"reversibility":0.1,"sensitive_access":0,"outside_workspace":0}',
+				text: '{"verdict":"allow","confidence":0.99,"reversibility":0.1,"sensitive_access":0,"outside_workspace":0}',
 			},
 		],
 		stopReason: "stop",
@@ -604,7 +580,6 @@ describe("judge report", () => {
 		const record: JudgeRecord = {
 			...base,
 			answers: {
-				intent_match: 0.9,
 				reversibility: 0.2,
 				sensitive_access: 0,
 				outside_workspace: 0.1,
@@ -612,7 +587,7 @@ describe("judge report", () => {
 		};
 
 		expect(judgeSignalText(record)).toBe(
-			"intent 0.90 \u00b7 reversibility 0.20 \u00b7 sensitive 0.00 \u00b7 outside 0.10",
+			"reversibility 0.20 \u00b7 sensitive 0.00 \u00b7 outside 0.10",
 		);
 	});
 });

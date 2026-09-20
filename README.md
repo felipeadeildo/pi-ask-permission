@@ -142,13 +142,13 @@ Turn on _Dry run_ first if you want to watch it decide without acting. Each deci
 
 ### How the judge decides
 
-The judge answers a fixed set of atomic questions: a verdict, whether the call serves your request, how reversible it is, whether it touches secrets, and whether it leaves the project. Code combines the answers. There is no broad "is this safe?" prompt.
+The judge answers a fixed set of atomic questions: a verdict, how reversible the call is, whether it touches secrets, and whether it leaves the project. Code combines the answers. There is no broad "is this safe?" prompt.
 
 ```text
 risk = 0.45 × reversibility + 0.30 × sensitive + 0.25 × outside
 ```
 
-A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, `risk` is at or below `riskCeiling`, and intent clears `intentFloor`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `onUncertain` says otherwise. The `never` list is checked in code first and always falls through to you.
+A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, and `risk` is at or below `riskCeiling`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `onUncertain` says otherwise. The `never` list is checked in code first and always falls through to you.
 
 The policy is authoritative and the tool call is treated as untrusted data, so a command cannot talk its way past `never`.
 
@@ -181,7 +181,6 @@ The raw config:
 		"tools": ["bash"],
 		"never": [],
 		"thresholds": { "allow": 0.85, "deny": 0.8 },
-		"intentFloor": 0.6,
 		"riskCeiling": 0.45,
 		"onUncertain": "ask",
 		"autoDeny": true,
@@ -191,7 +190,6 @@ The raw config:
 		"grant": false,
 		"timeoutMs": 5000,
 		"cache": true,
-		"includeConversation": true,
 		"policy": "Allow tests and edits inside the project. Ask before network, installs, or deletes."
 	}
 }

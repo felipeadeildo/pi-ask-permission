@@ -81,21 +81,6 @@ export function composeVerdict(config: JudgeConfig, answers: JudgeAnswers): Comp
 			risk,
 		};
 
-	const intent = answers.intent_match;
-	if (intent === undefined)
-		return {
-			decision: "uncertain",
-			reason: "the judge did not report whether the call serves you",
-			risk,
-		};
-
-	if (intent < config.intentFloor)
-		return {
-			decision: "uncertain",
-			reason: `the call may not serve your request (intent ${intent.toFixed(2)})`,
-			risk,
-		};
-
 	return {
 		decision: "allow",
 		reason: `the judge approved this call (${percent(verdict.confidence)} confident, risk ${risk.toFixed(2)})`,

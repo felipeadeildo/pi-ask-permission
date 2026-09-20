@@ -19,7 +19,6 @@ export interface JudgeConfig {
 	/** Patterns it may never auto-approve, whatever it answers. */
 	never: string[];
 	thresholds: JudgeThresholds;
-	intentFloor: number;
 	riskCeiling: number;
 	onUncertain: JudgeFallback;
 	autoDeny: boolean;
@@ -32,8 +31,6 @@ export interface JudgeConfig {
 	grant: boolean;
 	timeoutMs: number;
 	cache: boolean;
-	/** Send the last user message so intent can be judged. */
-	includeConversation: boolean;
 	/** Operator rulebook for what may run. */
 	policy: string;
 }
@@ -45,7 +42,6 @@ export const DEFAULT_JUDGE: JudgeConfig = {
 	tools: ["bash"],
 	never: [],
 	thresholds: { allow: 0.85, deny: 0.8 },
-	intentFloor: 0.6,
 	riskCeiling: 0.45,
 	onUncertain: "ask",
 	autoDeny: true,
@@ -55,7 +51,6 @@ export const DEFAULT_JUDGE: JudgeConfig = {
 	grant: false,
 	timeoutMs: 5000,
 	cache: true,
-	includeConversation: true,
 	policy: DEFAULT_POLICY,
 };
 

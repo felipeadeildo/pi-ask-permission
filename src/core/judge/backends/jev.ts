@@ -47,7 +47,7 @@ export function createJevBackend(options: JevBackendOptions): JudgeBackend {
 			const body = JSON.stringify({
 				state: buildJudgeState(input),
 				model: options.model,
-				questions: buildJudgeQuestions(input),
+				questions: buildJudgeQuestions(),
 			});
 
 			const response = await send(
@@ -177,7 +177,6 @@ export function parseJevResponse(
 export function toAnswers(raw: Record<string, unknown>): JudgeAnswers {
 	return {
 		verdict: toVerdict(raw.verdict),
-		intent_match: toNoul(raw.intent_match),
 		reversibility: toScore(raw.reversibility),
 		sensitive_access: toNoul(raw.sensitive_access),
 		outside_workspace: toNoul(raw.outside_workspace),

@@ -31,7 +31,6 @@ export const judgeConfig: Decoder<JudgeConfig> = object({
 	tools: stringListOrEmpty(DEFAULT_JUDGE.tools, "tool name patterns"),
 	never: stringListOrEmpty(DEFAULT_JUDGE.never, "tool name patterns"),
 	thresholds: withDefaultOf(thresholds, () => ({ ...DEFAULT_JUDGE.thresholds })),
-	intentFloor: withDefault(unit, DEFAULT_JUDGE.intentFloor),
 	riskCeiling: withDefault(unit, DEFAULT_JUDGE.riskCeiling),
 	onUncertain: withDefault(literal("ask", "allow", "deny"), DEFAULT_JUDGE.onUncertain),
 	autoDeny: withDefault(boolean, DEFAULT_JUDGE.autoDeny),
@@ -41,7 +40,6 @@ export const judgeConfig: Decoder<JudgeConfig> = object({
 	grant: withDefault(boolean, DEFAULT_JUDGE.grant),
 	timeoutMs: withDefault(duration, DEFAULT_JUDGE.timeoutMs),
 	cache: withDefault(boolean, DEFAULT_JUDGE.cache),
-	includeConversation: withDefault(boolean, DEFAULT_JUDGE.includeConversation),
 	policy: withDefault(string, DEFAULT_JUDGE.policy),
 });
 

@@ -6,9 +6,7 @@ export interface JudgeInput {
 	target: CallDescriptor;
 	rawInput: unknown;
 	cwd: string;
-	lastUserMessage?: string;
 	policy: string;
-	includeConversation: boolean;
 }
 
 export type JudgeChoice = "allow" | "deny" | "needs_human";
@@ -20,7 +18,6 @@ export interface JudgeChoiceAnswer {
 
 export interface JudgeAnswers {
 	verdict?: JudgeChoiceAnswer;
-	intent_match?: number;
 	reversibility?: number;
 	sensitive_access?: number;
 	outside_workspace?: number;
