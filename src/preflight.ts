@@ -10,9 +10,8 @@ import {
 import { describe } from "./util.ts";
 
 /**
- * The edit tool with a no-op write. `execute` then runs the real access, read,
- * match, and duplicate/overlap checks and throws the same error the real edit
- * would, without touching the file.
+ * The edit tool with a no-op write, so `execute` runs the real checks and
+ * throws the same error the real edit would without touching the file.
  */
 const dryRun = createEditToolDefinition(process.cwd(), {
 	operations: {

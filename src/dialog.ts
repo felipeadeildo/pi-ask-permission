@@ -8,14 +8,24 @@ import {
 	type Focusable,
 	Input,
 	Key,
+	type KeybindingsManager,
 	matchesKey,
 	truncateToWidth,
 	visibleWidth,
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
+import { readClipboard } from "./clipboard.ts";
 import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "./grants.ts";
 import { type AskDecision, BASE_OPTIONS, type DecisionOption } from "./options.ts";
+import {
+	cleanPaste,
+	expandPastes,
+	PASTE_END,
+	PASTE_START,
+	pasteMarker,
+	shouldCollapse,
+} from "./paste.ts";
 import type { CallTarget } from "./targets.ts";
 
 type Phase = "menu" | "levels";
@@ -32,6 +42,7 @@ interface AskDialogOptions {
 	theme: Theme;
 	toolName: string;
 	target: CallTarget;
+	keybindings: KeybindingsManager;
 	requestRender: () => void;
 	complete: (decision: AskDecision) => void;
 }
@@ -42,8 +53,13 @@ export class AskDialog implements Component, Focusable {
 	private readonly target: CallTarget;
 	private readonly requestRender: () => void;
 	private readonly complete: (decision: AskDecision) => void;
+	private readonly keybindings: KeybindingsManager;
 	/** One note editor per row, so each row keeps its own draft. */
 	private readonly noteInputs: Input[];
+	/** Text a paste marker stands for, keyed by marker id. */
+	private readonly pastes = new Map<number, string>();
+	private pasteId = 0;
+	private pasteBuffer = "";
 
 	private phase: Phase = "menu";
 	private selected = 0;
@@ -73,6 +89,7 @@ export class AskDialog implements Component, Focusable {
 		this.target = options.target;
 		this.requestRender = options.requestRender;
 		this.complete = options.complete;
+		this.keybindings = options.keybindings;
 
 		this.noteInputs = [...BASE_OPTIONS.keys()].map((index) => {
 			const input = new Input({ prompt: "", placeholder: "" });
@@ -126,7 +143,7 @@ export class AskDialog implements Component, Focusable {
 			if (matchesKey(data, Key.up)) this.moveNote(-1);
 			else if (matchesKey(data, Key.down)) this.moveNote(1);
 			else if (matchesKey(data, Key.tab)) this.noteIndex = null;
-			else this.activeNoteInput?.handleInput(data);
+			else this.handleNoteInput(data);
 			return;
 		}
 
@@ -220,7 +237,72 @@ export class AskDialog implements Component, Focusable {
 	}
 
 	private draftNote(): string | undefined {
-		return this.activeNoteInput?.getValue().trim() || undefined;
+		const input = this.activeNoteInput;
+		if (!input) return undefined;
+
+		const note = expandPastes(input.getValue(), this.pastes).trim();
+		return note || undefined;
+	}
+
+	/** Sends a keystroke to the note editor, after the paste checks. */
+	private handleNoteInput(data: string): void {
+		if (this.pasteBuffer !== "" || data.includes(PASTE_START)) {
+			this.bufferPaste(data);
+			return;
+		}
+
+		if (this.keybindings.matches(data, "app.clipboard.pasteImage")) {
+			this.pasteClipboard();
+			return;
+		}
+
+		this.activeNoteInput?.handleInput(data);
+	}
+
+	private bufferPaste(data: string): void {
+		const start = data.indexOf(PASTE_START);
+		const text = this.pasteBuffer + (start === -1 ? data : data.slice(start + PASTE_START.length));
+		const end = text.indexOf(PASTE_END);
+
+		if (end === -1) {
+			this.pasteBuffer = text;
+			return;
+		}
+
+		this.pasteBuffer = "";
+		const index = this.noteIndex;
+		if (index !== null) this.insertPaste(index, text.slice(0, end));
+
+		const rest = text.slice(end + PASTE_END.length);
+		if (rest) this.handleNoteInput(rest);
+	}
+
+	private pasteClipboard(): void {
+		const index = this.noteIndex;
+		if (index === null) return;
+
+		void readClipboard().then((text) => {
+			if (!text) return;
+			this.insertPaste(index, text);
+			this.requestRender();
+		});
+	}
+
+	private insertPaste(index: number, pastedText: string): void {
+		const input = this.noteInputs[index];
+		if (!input) return;
+
+		const text = cleanPaste(pastedText);
+		if (shouldCollapse(text)) {
+			this.pasteId++;
+			this.pastes.set(this.pasteId, text);
+			input.handleInput(pasteMarker(this.pasteId, text));
+			return;
+		}
+
+		// Keep a pasted path from gluing to the word before it.
+		const spacer = /^[/~.]/.test(text) && /\w$/.test(input.getValue()) ? " " : "";
+		input.handleInput(spacer + text);
 	}
 
 	private levelLines(): string[] {

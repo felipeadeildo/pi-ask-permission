@@ -36,6 +36,8 @@ permission · bash
 
 The note rides along with the tool result, so the agent reads "use pnpm instead" while it is still working. The same works on an approval, for what you want to add. Arrow keys keep moving the highlight with the input attached, and each row keeps its own draft.
 
+Paste works like the main editor. `ctrl+v` drops in a clipboard image as its temp file path, and a long or multi-line paste collapses to a `[paste #1 +48 lines]` marker that expands when you confirm.
+
 ## Always yes asks two questions
 
 How wide the grant is, then how long it lasts.

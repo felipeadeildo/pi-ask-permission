@@ -292,11 +292,12 @@ async function ask(
 	if (ctx.mode === "tui") {
 		try {
 			const decision = await ctx.ui.custom<AskDecision>(
-				(tui, theme, _keybindings, done) =>
+				(tui, theme, keybindings, done) =>
 					new AskDialog({
 						theme,
 						toolName,
 						target,
+						keybindings,
 						requestRender: () => tui.requestRender(),
 						complete: done,
 					}),

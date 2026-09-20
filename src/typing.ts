@@ -42,7 +42,7 @@ export class TypingMonitor {
 		this.lastTypedAt = 0;
 	}
 
-	/** Ignores keystrokes while a dialog owns the input. */
+	/** Stops counting keystrokes while a dialog owns the input. */
 	pause(): void {
 		this.watching = false;
 	}
@@ -51,7 +51,7 @@ export class TypingMonitor {
 		this.watching = this.unsubscribe !== undefined;
 	}
 
-	/** Waits out a burst of typing. `onWait` runs for as long as that takes. */
+	/** Waits out a burst of typing, reporting through `onWait` while it does. */
 	async waitUntilQuiet(
 		signal: AbortSignal | undefined,
 		onWait: (waiting: boolean) => void,

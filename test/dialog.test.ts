@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { CURSOR_MARKER, visibleWidth } from "@earendil-works/pi-tui";
+import { CURSOR_MARKER, type KeybindingsManager, visibleWidth } from "@earendil-works/pi-tui";
 
 import { AskDialog } from "../src/dialog.ts";
 import type { GrantScope } from "../src/grants.ts";
@@ -19,6 +19,9 @@ const theme = {
 
 const KEYS = { up: "\x1b[A", down: "\x1b[B", enter: "\r", tab: "\t", esc: "\x1b" };
 
+/** Ctrl+V is never pressed in these tests. */
+const NO_PASTE = { matches: () => false } as unknown as KeybindingsManager;
+
 function open(toolName = "bash", input: unknown = { command: "git status --short" }) {
 	const decisions: AskDecision[] = [];
 	let renders = 0;
@@ -26,6 +29,7 @@ function open(toolName = "bash", input: unknown = { command: "git status --short
 		theme,
 		toolName,
 		target: deriveTarget(toolName, input),
+		keybindings: NO_PASTE,
 		requestRender: () => {
 			renders++;
 		},
@@ -297,6 +301,36 @@ describe("note navigation while editing", () => {
 		expect(decisions).toEqual([
 			{ decision: "allow", note: "second", remember: "git status --short", scope: "session" },
 		]);
+	});
+});
+
+describe("note paste", () => {
+	test("a short single-line paste is inserted as text", () => {
+		const { dialog, decisions } = open();
+		press(dialog, KEYS.tab, "\x1b[200~use pnpm\x1b[201~", KEYS.enter);
+		expect(decisions).toEqual([{ decision: "allow", note: "use pnpm", remember: undefined }]);
+	});
+
+	test("a multi-line paste becomes a marker and expands on confirm", () => {
+		const { dialog, decisions } = open();
+		const pasted = Array.from({ length: 20 }, (_value, index) => `line ${index}`).join("\n");
+		press(dialog, KEYS.tab, `\x1b[200~${pasted}\x1b[201~`);
+		expect(dialog.render(80).join("\n")).toContain("[paste #1 +20 lines]");
+		press(dialog, KEYS.enter);
+		expect(decisions).toEqual([{ decision: "allow", note: pasted, remember: undefined }]);
+	});
+
+	test("a paste split across keystrokes is reassembled", () => {
+		const { dialog, decisions } = open();
+		press(dialog, KEYS.tab, "\x1b[200~first\nsecond", "\x1b[201~", KEYS.enter);
+		expect(decisions).toEqual([{ decision: "allow", note: "first\nsecond", remember: undefined }]);
+	});
+
+	test("a marker keeps its own row's text", () => {
+		const { dialog, decisions } = open();
+		press(dialog, KEYS.tab, "\x1b[200~a\nb\x1b[201~");
+		press(dialog, KEYS.down, KEYS.up, KEYS.enter);
+		expect(decisions).toEqual([{ decision: "allow", note: "a\nb", remember: undefined }]);
 	});
 });
 

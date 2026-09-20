@@ -1,10 +1,9 @@
 import { createBashToolDefinition, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /**
- * The built-in bash renderer starts its clock at `tool_execution_start`, which
- * runs before the permission dialog, so the time you spend approving lands in
- * the "Took" line. Re-register bash with the same renderer and stamp the clock
- * when the command actually starts.
+ * The bash row times from `tool_execution_start`, before the permission dialog,
+ * so approval time lands in "Took". Re-register it and stamp the clock when the
+ * command really starts.
  */
 export function registerBashTimer(pi: ExtensionAPI): void {
 	const definition = createBashToolDefinition(process.cwd());
