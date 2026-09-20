@@ -15,6 +15,8 @@ permission · bash
 ↑↓ or 1-3 pick   enter confirm   tab note   esc deny
 ```
 
+If you are mid-sentence in the editor when a call arrives, the dialog waits for you to pause. The footer reads `waiting for you to finish typing` while it does, and by default it waits however long that takes. Set `typing.maxWait` to cap it.
+
 ## Why
 
 Two-button prompts only say yes or no. Say the agent runs `npm install` and you wanted pnpm. Pressing yes runs the wrong command. Pressing no leaves the agent guessing why, so the explanation arrives a turn late and detached from the decision.
@@ -93,7 +95,8 @@ One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves
 	"allow": ["read", "grep", "find", "ls"],
 	"headless": "deny",
 	"followup": "result",
-	"yolo": false
+	"yolo": false,
+	"typing": { "pause": 1000, "maxWait": null }
 }
 ```
 
@@ -108,6 +111,8 @@ One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves
 ```
 
 `followup` chooses where an approval note goes. `"result"` appends it to the tool result the model is already reading. `"message"` sends it as its own steering message. `yolo` approves everything, for a throwaway run.
+
+`typing` tunes that wait. `pause` is the quiet time in milliseconds before the dialog opens. `maxWait` caps the total wait in milliseconds, or `null` for no cap.
 
 A missing or malformed file falls back to the defaults and reports what it dropped. A typo never widens the gate.
 

@@ -39,9 +39,12 @@ import { type AskDecision } from "./options.ts";
 import { editFailure } from "./preflight.ts";
 import { askViaSelector } from "./selector.ts";
 import { type CallTarget, deriveTarget } from "./targets.ts";
+import { TypingMonitor } from "./typing.ts";
 
 /** Message namespace and the name in every user-facing string. */
 const NAME = "pi-ask-permission";
+
+const TYPING_STATUS = "waiting for you to finish typing";
 
 type PersistedScope = Exclude<GrantScope, "session">;
 
@@ -61,6 +64,7 @@ export default function piAskPermission(pi: ExtensionAPI) {
 	};
 	/** Approval notes waiting for their tool result, keyed by tool call id. */
 	const pendingNotes = new Map<string, string>();
+	const typing = new TypingMonitor(config.typing.pause, config.typing.maxWait);
 
 	const isGranted = (toolName: string, levels: string[]): boolean =>
 		levels.some((level) => {
@@ -112,6 +116,11 @@ export default function piAskPermission(pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
 		for (const warning of loaded.warnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
 		loadScopes(ctx);
+		typing.start(ctx);
+	});
+
+	pi.on("session_shutdown", () => {
+		typing.stop();
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
@@ -131,7 +140,12 @@ export default function piAskPermission(pi: ExtensionAPI) {
 			if (failure) return { block: true, reason: failure };
 		}
 
-		const decision = await ask(ctx, toolName, target);
+		await typing.waitUntilQuiet(ctx.signal, (waiting) => {
+			ctx.ui.setStatus(NAME, waiting ? TYPING_STATUS : undefined);
+		});
+
+		typing.pause();
+		const decision = await ask(ctx, toolName, target).finally(() => typing.resume());
 
 		if (decision.decision === "deny") {
 			return { block: true, reason: denyReason(decision.note) };
@@ -356,6 +370,7 @@ function statusText(
 		`${NAME} \u00b7 ${configFile}`,
 		`allow: ${config.allow.join(", ") || "(none)"}`,
 		`followup: ${config.followup} \u00b7 headless: ${headless} \u00b7 yolo: ${config.yolo ? "on" : "off"}`,
+		`typing: pause ${config.typing.pause}ms \u00b7 maxWait ${config.typing.maxWait ?? "none"}`,
 		`grants: ${GRANT_SCOPES.map((scope) => `${grants[scope].size} ${scope}`).join(" \u00b7 ")}`,
 		`project file: ${projectGrantsPath(cwd, CONFIG_DIR_NAME)}`,
 		`global file: ${grantsPath()}`,

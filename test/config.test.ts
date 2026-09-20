@@ -68,6 +68,34 @@ describe("coerceConfig", () => {
 		expect(warnings).toHaveLength(1);
 	});
 
+	test("reads a typing block", () => {
+		const warnings: string[] = [];
+		expect(coerceConfig({ typing: { pause: 250, maxWait: 5000 } }, warnings).typing).toEqual({
+			pause: 250,
+			maxWait: 5000,
+		});
+		expect(warnings).toEqual([]);
+	});
+
+	test("a missing typing.maxWait means no cap", () => {
+		expect(coerceConfig({}, []).typing.maxWait).toBeNull();
+		expect(coerceConfig({ typing: { maxWait: null } }, []).typing.maxWait).toBeNull();
+	});
+
+	test("drops invalid typing values and warns", () => {
+		const warnings: string[] = [];
+		expect(coerceConfig({ typing: { pause: -1, maxWait: "soon" } }, warnings).typing).toEqual(
+			DEFAULT_CONFIG.typing,
+		);
+		expect(warnings).toHaveLength(2);
+	});
+
+	test("rejects a non-object typing value", () => {
+		const warnings: string[] = [];
+		expect(coerceConfig({ typing: 5 }, warnings).typing).toEqual(DEFAULT_CONFIG.typing);
+		expect(warnings).toHaveLength(1);
+	});
+
 	test("an invalid higher-precedence value never widens access", () => {
 		const warnings: string[] = [];
 		const config = coerceConfig({ headless: 42, allow: null, yolo: "yes" }, warnings);
@@ -166,6 +194,8 @@ describe("config file", () => {
 	test("a loaded config does not alias the exported defaults", () => {
 		const loaded = loadConfig();
 		loaded.config.allow.push("bash");
+		loaded.config.typing.pause = 1;
 		expect(DEFAULT_CONFIG.allow).not.toContain("bash");
+		expect(DEFAULT_CONFIG.typing.pause).toBe(1000);
 	});
 });

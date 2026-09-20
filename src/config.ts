@@ -12,6 +12,13 @@ export type HeadlessMode = "allow" | "deny";
 
 export type FollowupWire = "result" | "message";
 
+export interface TypingConfig {
+	/** Milliseconds of silence before a dialog may open. */
+	pause: number;
+	/** Milliseconds before the wait gives up, or null to wait as long as typing lasts. */
+	maxWait: number | null;
+}
+
 export interface AskConfig {
 	/** Tool names that never prompt. `*` and `?` wildcards are supported. */
 	allow: string[];
@@ -20,6 +27,8 @@ export interface AskConfig {
 	followup: FollowupWire;
 	/** Skip the dialog entirely and approve everything. */
 	yolo: boolean;
+	/** How a dialog waits for the user to stop typing. */
+	typing: TypingConfig;
 }
 
 export const DEFAULT_CONFIG: AskConfig = {
@@ -27,6 +36,7 @@ export const DEFAULT_CONFIG: AskConfig = {
 	headless: "deny",
 	followup: "result",
 	yolo: false,
+	typing: { pause: 1000, maxWait: null },
 };
 
 export interface LoadedConfig {
@@ -134,7 +144,32 @@ export function coerceConfig(raw: Record<string, unknown>, warnings: string[]): 
 	if (typeof raw.yolo === "boolean") config.yolo = raw.yolo;
 	else if (raw.yolo !== undefined) warnings.push("yolo: expected a boolean");
 
+	if (isRecord(raw.typing)) {
+		config.typing = coerceTyping(raw.typing, warnings);
+	} else if (raw.typing !== undefined) {
+		warnings.push("typing: expected an object with pause and maxWait");
+	}
+
 	return config;
+}
+
+function coerceTyping(raw: Record<string, unknown>, warnings: string[]): TypingConfig {
+	const typing = { ...DEFAULT_CONFIG.typing };
+
+	if (isDuration(raw.pause)) typing.pause = raw.pause;
+	else if (raw.pause !== undefined)
+		warnings.push("typing.pause: expected a non-negative number of milliseconds");
+
+	if (raw.maxWait === null) typing.maxWait = null;
+	else if (isDuration(raw.maxWait)) typing.maxWait = raw.maxWait;
+	else if (raw.maxWait !== undefined)
+		warnings.push("typing.maxWait: expected milliseconds or null");
+
+	return typing;
+}
+
+function isDuration(value: unknown): value is number {
+	return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 /** `*` matches any run of characters, `?` exactly one. */
@@ -184,9 +219,13 @@ function specificity(pattern: string): number {
 	return 3;
 }
 
-/** A copy, so mutating `allow` never touches DEFAULT_CONFIG. */
+/** A copy, so mutating `allow` or `typing` never touches DEFAULT_CONFIG. */
 function defaults(): AskConfig {
-	return { ...DEFAULT_CONFIG, allow: [...DEFAULT_CONFIG.allow] };
+	return {
+		...DEFAULT_CONFIG,
+		allow: [...DEFAULT_CONFIG.allow],
+		typing: { ...DEFAULT_CONFIG.typing },
+	};
 }
 
 function writeConfigFile(path: string, config: AskConfig): void {
