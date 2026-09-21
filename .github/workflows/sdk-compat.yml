@@ -1,0 +1,237 @@
+# Runs the suite against the newest pi SDK on npm. A release that still passes
+# opens a bump PR; one that fails files an issue. Cron because npm cannot send us
+# an event, a push re-checks whatever just landed, and a manual run re-checks on
+# demand.
+#
+# The cron stops silently after 60 days without repository activity, which GitHub
+# does to public repos, and it always runs against the latest commit of the default
+# branch. Re-enable the workflow from the Actions tab if that ever happens.
+name: SDK compat
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # 09:00 UTC, after the usual publish window.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+# Read everywhere, and write only where this job needs it: unspecified scopes
+# default to none inside a job that declares permissions.
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: sdk-compat
+  cancel-in-progress: false
+
+jobs:
+  sdk:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+      version: ${{ steps.compare.outputs.version }}
+      pinned: ${{ steps.compare.outputs.pinned }}
+      open: ${{ steps.issue.outputs.open }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The three packages move in lockstep, but each pin is compared on its own
+      # so a split release does not slip through.
+      - id: compare
+        run: |
+          set -euo pipefail
+          changed=false
+          for name in pi-ai pi-coding-agent pi-tui; do
+            pinned=$(node -p "require('./package.json').devDependencies['@earendil-works/${name}']")
+            newest=$(npm view "@earendil-works/${name}" version)
+            echo "${name}: pinned ${pinned}, latest ${newest}"
+            if [ "$pinned" != "$newest" ]; then changed=true; fi
+          done
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+          echo "version=$(npm view @earendil-works/pi-coding-agent version)" >> "$GITHUB_OUTPUT"
+          echo "pinned=$(node -p 'require("./package.json").devDependencies["@earendil-works/pi-coding-agent"]')" >> "$GITHUB_OUTPUT"
+
+      # An open issue keeps the check alive on days with no release, so a fix made
+      # here closes it instead of waiting for the next pi release.
+      - id: issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          open=$(gh issue list --label sdk-compat --state open --json number --jq 'length')
+          echo "open=${open}" >> "$GITHUB_OUTPUT"
+
+  compat:
+    needs: sdk
+    # A push or a manual run always re-checks; the schedule only wakes up when a
+    # pin moved or an issue is still open.
+    if: github.event_name != 'schedule' || needs.sdk.outputs.changed == 'true' || needs.sdk.outputs.open != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      # A manual run against a pin that is already current only re-tests it, so
+      # `bumped` keeps the commit and the PR out of that case.
+      - name: Install the latest SDK
+        id: bump
+        run: |
+          set -euo pipefail
+          bun add --dev \
+            @earendil-works/pi-ai@latest \
+            @earendil-works/pi-coding-agent@latest \
+            @earendil-works/pi-tui@latest
+          if git diff --quiet -- package.json bun.lock; then
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # pipefail, or `tee` masks the exit status and the step never fails.
+      - name: Verify
+        id: verify
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          bun run verify 2>&1 | tee verify.log
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-log
+          path: verify.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: File the incompatibility
+        if: steps.verify.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.sdk.outputs.version }}
+          PINNED: ${{ needs.sdk.outputs.pinned }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="pi SDK ${VERSION} fails the suite"
+          notes=$(gh api "repos/earendil-works/pi/releases/tags/v${VERSION}" --jq .body 2>/dev/null || true)
+
+          gh label create sdk-compat \
+            --description "Fails against the latest pi SDK" \
+            --color f9d0c4 \
+            --force
+
+          {
+            echo "The newest \`@earendil-works/pi-coding-agent\` is \`${VERSION}\` and \`bun run verify\` fails against it."
+            echo
+            if [ "$PINNED" = "$VERSION" ]; then
+              echo "- pinned here: \`${VERSION}\` already, so this only re-ran the check"
+            else
+              echo "- pinned here: \`${PINNED}\` → \`${VERSION}\` ([compare](https://github.com/earendil-works/pi/compare/v${PINNED}...v${VERSION}))"
+            fi
+            echo "- [run](${RUN_URL})"
+            echo "- [release notes](https://github.com/earendil-works/pi/releases/tag/v${VERSION})"
+            echo "- full output: the \`verify-log\` artifact of the run above"
+            echo
+            echo "<details><summary>Tail of the log</summary>"
+            echo
+            echo '```text'
+            tail -n 120 verify.log
+            echo '```'
+            echo
+            echo "</details>"
+            echo
+            if [ -n "$notes" ]; then
+              echo "<details><summary>What pi ${VERSION} changed</summary>"
+              echo
+              echo "$notes"
+              echo
+              echo "</details>"
+            else
+              echo "npm already serves \`${VERSION}\` while the GitHub release is not up, so there are no notes to quote yet."
+            fi
+          } > body.md
+
+          number=$(gh issue list --label sdk-compat --state open --json number --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            gh issue create --title "$title" --label sdk-compat --body-file body.md
+            exit 0
+          fi
+
+          # One thread per failing version: a repeat of a version already reported
+          # only re-runs the check, and the title follows the newest failure.
+          seen=$(gh issue view "$number" --json body,comments --jq '.body + "\n" + ([.comments[].body] | join("\n"))')
+          case "$seen" in
+            *"\`${VERSION}\`"*) echo "${VERSION} was already reported" ;;
+            *)
+              gh issue edit "$number" --title "$title"
+              gh issue comment "$number" --body-file body.md
+              ;;
+          esac
+
+      - name: Open or refresh the bump PR
+        if: steps.verify.outcome == 'success' && steps.bump.outputs.bumped == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.sdk.outputs.version }}
+          PINNED: ${{ needs.sdk.outputs.pinned }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          branch=sdk-compat/pi-latest
+          title="chore(deps): bump the pi SDK to ${VERSION}"
+          notes=$(gh api "repos/earendil-works/pi/releases/tags/v${VERSION}" --jq .body 2>/dev/null || true)
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add package.json bun.lock
+          git commit -m "$title"
+          git push --force origin "$branch"
+
+          {
+            echo "The pi SDK released \`${VERSION}\` and the whole suite passes against it."
+            echo
+            echo "- \`${PINNED}\` → \`${VERSION}\` ([compare](https://github.com/earendil-works/pi/compare/v${PINNED}...v${VERSION}))"
+            echo "- [run](${RUN_URL})"
+            echo "- [release notes](https://github.com/earendil-works/pi/releases/tag/v${VERSION})"
+            if [ -n "$notes" ]; then
+              echo
+              echo "<details><summary>What pi ${VERSION} changed</summary>"
+              echo
+              echo "$notes"
+              echo
+              echo "</details>"
+            fi
+            echo
+            echo "Opened by \`sdk-compat\`, so CI on this PR waits for a maintainer to approve it."
+          } > body.md
+
+          number=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --title "$title" --body-file body.md
+          else
+            gh pr create --title "$title" --body-file body.md --head "$branch" --base main
+          fi
+
+      - name: Close the incompatibility
+        if: steps.verify.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.sdk.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          for number in $(gh issue list --label sdk-compat --state open --json number --jq '.[].number'); do
+            gh issue comment "$number" --body "\`${VERSION}\` runs green again: ${RUN_URL}"
+            gh issue close "$number"
+          done
