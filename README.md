@@ -7,6 +7,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
   <a href="https://www.npmjs.com/package/pi-ask-permission"><img src="https://img.shields.io/badge/provenance-signed-success" alt="provenance"></a>
   <a href="https://pi.dev/packages/pi-ask-permission"><img src="https://img.shields.io/badge/pi--package-6E56CF" alt="pi package"></a>
+  <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-ask-permission%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
 Pi has no permission popups. This extension adds one.
@@ -244,6 +245,10 @@ The judge is a model. It narrows what reaches the dialog; it does not guarantee 
 If you want deterministic rules with no human in the loop, this is the wrong tool.
 
 The read-only check is a classifier, not a sandbox. It matches the command name as written and does not resolve `PATH`, so a `cat` that is a different binary earlier on `PATH` passes the check and then runs. It refuses a name shadowed by an exported shell function, and `BASH_ENV` disables the check because that file can define functions. It also refuses anything it cannot prove harmless, so a few safe commands still ask.
+
+## Compatibility
+
+Tested against the pi SDK pinned in `devDependencies`, the version the `pi SDK` badge reads from `package.json`. New pi releases get checked as they land, so the pin does not drift. The peer range stays `*` on purpose: the host picks the SDK that loads the extension, so a range would only complain about a combination the host already accepted.
 
 ## Contributing
 
