@@ -1,6 +1,6 @@
 {
 	"name": "pi-ask-permission",
-	"version": "1.2.0",
+	"version": "2.0.0",
 	"description": "A permission gate for the Pi coding agent: yes / always yes / deny, each with an optional followup note.",
 	"keywords": [
 		"approval",
