@@ -1,7 +1,7 @@
 {
 	"name": "pi-ask-permission",
 	"version": "2.0.0",
-	"description": "A permission gate for the Pi coding agent: yes / always yes / deny, each with an optional followup note.",
+	"description": "A permission dialog for the Pi coding agent. Approve, always approve, or deny a tool call, and attach a note the model reads with the result.",
 	"keywords": [
 		"approval",
 		"permission",
