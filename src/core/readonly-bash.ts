@@ -57,6 +57,37 @@ const GIT_EXEC_FLAGS = [
 	"--textconv",
 	"--use-textconv",
 ];
+const GIT_BRANCH_FLAGS = new Set([
+	"-a",
+	"--all",
+	"-r",
+	"--remotes",
+	"-l",
+	"--list",
+	"-v",
+	"--verbose",
+	"-i",
+	"--ignore-case",
+	"--show-current",
+	"--no-column",
+	"--no-color",
+]);
+const GIT_BRANCH_SHORT_LETTERS = new Set(["a", "r", "l", "v", "i"]);
+// These take their value as a separate word, so the next token belongs to the flag.
+const GIT_BRANCH_VALUE_FLAGS = new Set([
+	"--contains",
+	"--no-contains",
+	"--merged",
+	"--no-merged",
+	"--points-at",
+	"--sort",
+	"--format",
+]);
+// Git only reads an optional value when it is attached with `=`, so a separate word
+// stays a branch name and must not be swallowed here.
+const GIT_BRANCH_OPTIONAL_VALUE_FLAGS = new Set(["--color", "--column", "--abbrev"]);
+const GIT_REMOTE_FLAGS = new Set(["-v", "--verbose"]);
+const GIT_REMOTE_SUBCOMMANDS = new Set(["show", "get-url"]);
 
 const READ_ONLY = new Set([
 	"cat",
@@ -310,9 +341,62 @@ function safeGit(args: string[]): boolean {
 			index++;
 			continue;
 		}
-		return GIT_READ_ONLY.has(arg);
+		const check = GIT_SUBCOMMAND_CHECKS[arg];
+		return check ? check(args.slice(index + 1)) : GIT_READ_ONLY.has(arg);
 	}
 	return false;
+}
+
+const GIT_SUBCOMMAND_CHECKS: Record<string, (args: string[]) => boolean> = {
+	branch: safeGitBranch,
+	remote: safeGitRemote,
+};
+
+// `git branch` lists for free but creates, deletes, and renames with the same name,
+// so only the filter flags pass and a bare word passes only after `--list`.
+function safeGitBranch(args: string[]): boolean {
+	let lists = false;
+
+	for (let index = 0; index < args.length; index++) {
+		const arg = args[index] ?? "";
+		if (arg === "-l" || arg === "--list") lists = true;
+
+		const [flag, value] = splitFlag(arg);
+		if (GIT_BRANCH_VALUE_FLAGS.has(flag)) {
+			if (value === undefined) index++;
+			continue;
+		}
+		if (GIT_BRANCH_OPTIONAL_VALUE_FLAGS.has(flag)) continue;
+		if (GIT_BRANCH_FLAGS.has(arg)) continue;
+		if (isShortCluster(arg, GIT_BRANCH_SHORT_LETTERS)) continue;
+		if (arg.startsWith("-")) return false;
+		if (!lists) return false;
+	}
+
+	return true;
+}
+
+// `git remote` lists or shows by default; every mutation is its own subcommand.
+function safeGitRemote(args: string[]): boolean {
+	let index = 0;
+	while (index < args.length && GIT_REMOTE_FLAGS.has(args[index] ?? "")) index++;
+	if (index === args.length) return true;
+	return GIT_REMOTE_SUBCOMMANDS.has(args[index] ?? "");
+}
+
+function splitFlag(arg: string): [string, string | undefined] {
+	const equals = arg.indexOf("=");
+	if (equals < 0) return [arg, undefined];
+	return [arg.slice(0, equals), arg.slice(equals + 1)];
+}
+
+// Bundled shorts such as `-av` are safe only when every letter is.
+function isShortCluster(arg: string, letters: Set<string>): boolean {
+	if (!/^-[^-]/.test(arg)) return false;
+	for (const letter of arg.slice(1)) {
+		if (!letters.has(letter)) return false;
+	}
+	return true;
 }
 
 function isOutputFlag(arg: string): boolean {

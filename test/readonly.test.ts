@@ -19,6 +19,19 @@ describe("read-only chains", () => {
 		expect(ro("ls *.ts")).toBe(true);
 		expect(ro("git log --oneline -5 && git status")).toBe(true);
 		expect(ro("git -C /repo status")).toBe(true);
+		expect(ro("git branch")).toBe(true);
+		expect(ro("git branch --show-current")).toBe(true);
+		expect(ro("git branch -a")).toBe(true);
+		expect(ro("git branch -vv --list 'feat*'")).toBe(true);
+		expect(ro("git branch --sort=-committerdate --format='%(refname)'")).toBe(true);
+		expect(ro("git remote")).toBe(true);
+		expect(ro("git remote show origin")).toBe(true);
+		expect(ro("git remote get-url origin")).toBe(true);
+		expect(
+			ro(
+				"cd /repo && git branch --show-current && git status --short | head -5 && git log --oneline -3 && git branch -a | head -10 && git remote -v | head -2",
+			),
+		).toBe(true);
 	});
 
 	test("allows redirects that only discard output", () => {
@@ -92,6 +105,19 @@ describe("read-only refusals", () => {
 		expect(ro("find . -name '*.ts'")).toBe(true);
 		expect(ro("find . -exec rm {} ;")).toBe(false);
 		expect(ro("git push")).toBe(false);
+		expect(ro("git branch new-branch")).toBe(false);
+		expect(ro("git branch -d old")).toBe(false);
+		expect(ro("git branch -avD old")).toBe(false);
+		expect(ro("git branch --color foo")).toBe(false);
+		expect(ro("git branch --column foo")).toBe(false);
+		expect(ro("git branch --abbrev 7")).toBe(false);
+		expect(ro("git branch --list --color=always foo")).toBe(true);
+		expect(ro("git branch -m old new")).toBe(false);
+		expect(ro("git branch --edit-description")).toBe(false);
+		expect(ro("git remote add origin url")).toBe(false);
+		expect(ro("git remote set-url origin url")).toBe(false);
+		expect(ro("git remote prune origin")).toBe(false);
+		expect(ro("git remote update")).toBe(false);
 		expect(ro("rg --pre 'sh' x")).toBe(false);
 		expect(ro("tree -o out")).toBe(false);
 		expect(ro("uniq a b")).toBe(false);

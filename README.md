@@ -83,7 +83,7 @@ The mode is session state. `Alt+M` and `/perm mode` never write to `config.json`
 
 ## Read-only bash
 
-Commands that only read run without a prompt: `cat`, `grep`, `wc`, `git log`, and chains of them. Anything that writes, substitutes a command, opens a subshell, assigns a variable, or continues on a second line asks. A redirect that discards output (`2>/dev/null`, `2>&1`, `>/dev/null`) does not. Turn the check off with `readOnlyBash`.
+Commands that only read run without a prompt: `cat`, `grep`, `wc`, `git log`, `git branch` (listing), `git remote` (listing), and chains of them. Anything that writes, substitutes a command, opens a subshell, assigns a variable, or continues on a second line asks. A redirect that discards output (`2>/dev/null`, `2>&1`, `>/dev/null`) does not. Turn the check off with `readOnlyBash`.
 
 ## AI approvals
 
