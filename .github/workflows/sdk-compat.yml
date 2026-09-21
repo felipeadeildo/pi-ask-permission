@@ -46,6 +46,10 @@ jobs:
           for name in pi-ai pi-coding-agent pi-tui; do
             pinned=$(node -p "require('./package.json').devDependencies['@earendil-works/${name}']")
             newest=$(npm view "@earendil-works/${name}" version)
+            # A caret or tilde is a range, not a version, and would read as a
+            # difference on every single run.
+            pinned="${pinned#\^}"
+            pinned="${pinned#\~}"
             echo "${name}: pinned ${pinned}, latest ${newest}"
             if [ "$pinned" != "$newest" ]; then changed=true; fi
           done
@@ -87,7 +91,9 @@ jobs:
         id: bump
         run: |
           set -euo pipefail
-          bun add --dev \
+          # --exact, because a caret would turn the pin into a range and read as a
+          # difference on every run.
+          bun add --dev --exact \
             @earendil-works/pi-ai@latest \
             @earendil-works/pi-coding-agent@latest \
             @earendil-works/pi-tui@latest
