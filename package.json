@@ -25,6 +25,7 @@
 	},
 	"files": [
 		"src",
+		"assets/preview.png",
 		"README.md",
 		"CONTRIBUTING.md",
 		"LICENSE",
@@ -73,7 +74,8 @@
 	"pi": {
 		"extensions": [
 			"./src/index.ts"
-		]
+		],
+		"image": "https://raw.githubusercontent.com/felipeadeildo/pi-ask-permission/main/assets/preview.png"
 	},
 	"trustedDependencies": [
 		"lefthook"

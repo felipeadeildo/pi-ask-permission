@@ -13,16 +13,9 @@ Pi has no permission popups. This extension adds one.
 
 The dialog asks before a tool runs. Its three answers are `yes`, `always yes`, and `deny`, and any of them can carry a note that goes to the model with the tool result. Deny `npm install` with `use pnpm instead`, and the agent reads the correction while it keeps working.
 
-```
-permission · bash
-  git push origin main
-
-❯ 1  yes
-  2  always yes
-  3  deny
-
-↑↓ or 1-3 pick   enter confirm   tab note   esc deny
-```
+<p align="center">
+  <img src="assets/preview.png" alt="The permission dialog for npm install, with the judge card above it and a note typed on the deny row: use pnpm instead." width="860">
+</p>
 
 ## Install
 
@@ -34,20 +27,7 @@ Or `pi install git:github.com/felipeadeildo/pi-ask-permission`, or clone the rep
 
 ## The dialog
 
-Press `tab` to attach a note to the highlighted row:
-
-```
-permission · bash
-  npm install
-
-  1  yes
-  2  always yes
-❯ 3  deny, use pnpm instead
-
-↑↓ pick   enter confirm   esc back
-```
-
-Each row keeps its own draft, and approvals take a note too.
+Press `tab` to attach a note to the highlighted row. Each row keeps its own draft, and approvals take a note too.
 
 If you are typing in the editor when a call arrives, the dialog waits for a pause. The footer reads `waiting for you to finish typing`, and by default it waits as long as you keep typing. `typing.maxWait` caps the wait.
 

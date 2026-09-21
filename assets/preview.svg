@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="820" viewBox="0 0 1600 820">
+	<!-- Palette from pi's dark theme (theme/dark.json). -->
+	<rect width="1600" height="820" fill="#18181e"/>
+
+	<g font-family="JetBrainsMono Nerd Font Mono, JetBrains Mono, DejaVu Sans Mono, monospace" xml:space="preserve">
+		<!-- transcript: the judge card line -->
+		<text x="200" y="160" font-size="30"><tspan fill="#ffff00">◆ ask you </tspan><tspan fill="#808080">bash </tspan><tspan fill="#d4d4d4">npm install</tspan></text>
+		<text x="1400" y="160" font-size="30" text-anchor="end" fill="#666666">62% · risk 0.18 · 180ms</text>
+
+		<!-- the permission dialog, framed like the editor it replaces -->
+		<rect x="180" y="250" width="1240" height="430" rx="16" fill="none" stroke="#5f87ff" stroke-width="3"/>
+		<rect x="236" y="240" width="372" height="20" fill="#18181e"/>
+		<text x="252" y="261" font-size="28" fill="#8abeb7">permission · bash</text>
+
+		<text x="220" y="350" font-size="32" fill="#808080">npm install</text>
+
+		<text x="220" y="430" font-size="36"><tspan fill="#666666">  1  </tspan><tspan fill="#d4d4d4">yes</tspan></text>
+		<text x="220" y="500" font-size="36"><tspan fill="#666666">  2  </tspan><tspan fill="#d4d4d4">always yes</tspan></text>
+		<text x="220" y="570" font-size="36"><tspan fill="#8abeb7">❯ 3  </tspan><tspan fill="#cc6666">deny, </tspan><tspan fill="#666666">use pnpm instead</tspan></text>
+
+		<text x="220" y="640" font-size="26" fill="#666666">↑↓ pick   enter confirm   esc back</text>
+	</g>
+</svg>
