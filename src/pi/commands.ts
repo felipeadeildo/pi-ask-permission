@@ -1,10 +1,13 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Key } from "@earendil-works/pi-tui";
 
 import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
 import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
 import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText } from "#core/judge/report.ts";
+import { MODE_LABEL, nextMode, parseMode } from "#core/mode.ts";
 import { NAME } from "#identity";
+import { setSessionMode } from "#pi/mode.ts";
 import { forgetGrants, resetJudgeHealth, saveConfigFile, type SessionState } from "#pi/session.ts";
 import { grantCount, openSettings } from "#ui/settings/screen.ts";
 import { notifyJudgePolicyWarning, statusText } from "#ui/settings/status.ts";
@@ -16,9 +19,22 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 		openSettings(ctx, {
 			config: state.config,
 			grants: state.grants,
+			mode: () => state.mode,
+			setMode: (mode) => setSessionMode(state, mode, ctx, { announce: false }),
 			save: () => saveConfigFile(state, ctx),
 			onJudgeChange: () => state.judgeCache.clear(),
 		});
+
+	function notifyStatus(ctx: ExtensionContext): void {
+		ctx.ui.notify(
+			statusText(state.config, state.grants, state.configFile, ctx.cwd, state.mode),
+			"info",
+		);
+	}
+
+	function cycleMode(ctx: ExtensionContext): void {
+		setSessionMode(state, nextMode(state.mode), ctx);
+	}
 
 	async function runJudgeProbe(ctx: ExtensionContext): Promise<void> {
 		ctx.ui.setStatus(JUDGE_STATUS, "judge: testing\u2026");
@@ -79,20 +95,40 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 		}
 
 		if (argument === "status" || ctx.mode !== "tui") {
-			ctx.ui.notify(statusText(state.config, state.grants, state.configFile, ctx.cwd), "info");
+			notifyStatus(ctx);
 			return;
 		}
 
 		await openSettingsFor(ctx);
 	}
 
+	function modeCommand(ctx: ExtensionContext, argument: string | undefined): void {
+		if (argument === undefined) {
+			cycleMode(ctx);
+			return;
+		}
+
+		const mode = parseMode(argument);
+		if (!mode) {
+			ctx.ui.notify(`${NAME}: mode takes ${Object.values(MODE_LABEL).join(", ")}`, "warning");
+			return;
+		}
+
+		setSessionMode(state, mode, ctx);
+	}
+
 	pi.registerCommand("perm", {
-		description: `${NAME}: settings, status, reset`,
+		description: `${NAME}: mode, settings, status, reset`,
 		handler: async (args, ctx) => {
 			const [verb, argument] = args.trim().toLowerCase().split(/\s+/);
 
 			if (verb === "judge") {
 				await judgeCommand(ctx, argument);
+				return;
+			}
+
+			if (verb === "mode") {
+				modeCommand(ctx, argument);
 				return;
 			}
 
@@ -110,12 +146,17 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 			}
 
 			if (verb === "status" || ctx.mode !== "tui") {
-				ctx.ui.notify(statusText(state.config, state.grants, state.configFile, ctx.cwd), "info");
+				notifyStatus(ctx);
 				return;
 			}
 
 			await openSettingsFor(ctx);
 		},
+	});
+
+	pi.registerShortcut(Key.alt("m"), {
+		description: `${NAME}: cycle mode (manual, accept edits, yolo)`,
+		handler: cycleMode,
 	});
 }
 

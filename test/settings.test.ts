@@ -4,8 +4,9 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import { DEFAULT_CONFIG } from "#core/config/schema.ts";
 import { defaultJudge } from "#core/judge/config.ts";
+import { MODE_LABEL, PERMISSION_MODES } from "#core/mode.ts";
 import { buildJudgeSettings, JUDGE_SETTING_IDS, judgeValues } from "#ui/settings/judge.ts";
-import { judgeToggleItem } from "#ui/settings/screen.ts";
+import { judgeToggleItem, modeItem } from "#ui/settings/screen.ts";
 
 function judgeScreen(): ReturnType<typeof buildJudgeSettings> {
 	return buildJudgeSettings({
@@ -63,5 +64,14 @@ describe("settings layout", () => {
 
 	test("a hand-edited tools list reads as Custom", () => {
 		expect(judgeValues({ ...defaultJudge(), tools: ["mcp_*"] })["judge.tools"]).toBe("Custom");
+	});
+
+	test("the mode row offers every mode and marks the session value", () => {
+		for (const mode of PERMISSION_MODES) {
+			const item = modeItem(mode);
+			expect(item.values).toEqual(PERMISSION_MODES.map((entry) => MODE_LABEL[entry]));
+			expect(item.values).toContain(item.currentValue);
+			expect(item.currentValue).toBe(MODE_LABEL[mode]);
+		}
 	});
 });

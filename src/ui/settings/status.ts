@@ -4,6 +4,7 @@ import type { PermissionConfig } from "#core/config/schema.ts";
 import { grantsPath, projectGrantsPath } from "#core/config/store.ts";
 import { type GrantScope, GRANT_SCOPES } from "#core/grants.ts";
 import { policyWarning } from "#core/judge/policy.ts";
+import { MODE_LABEL, type PermissionMode } from "#core/mode.ts";
 import { NAME } from "#identity";
 
 export function notifyJudgePolicyWarning(config: PermissionConfig, ctx: ExtensionContext): void {
@@ -18,6 +19,7 @@ export function statusText(
 	grants: Record<GrantScope, Set<string>>,
 	configFile: string,
 	cwd: string,
+	mode: PermissionMode,
 ): string {
 	const headless =
 		typeof config.headless === "string" ? config.headless : JSON.stringify(config.headless);
@@ -25,7 +27,8 @@ export function statusText(
 	return [
 		`${NAME} \u00b7 ${configFile}`,
 		`allow: ${config.allow.join(", ") || "(none)"}`,
-		`followup: ${config.followup} \u00b7 headless: ${headless} \u00b7 yolo: ${config.yolo ? "on" : "off"}`,
+		`mode: ${MODE_LABEL[mode]} (this session)`,
+		`followup: ${config.followup} \u00b7 headless: ${headless}`,
 		`typing: pause ${config.typing.pause}ms \u00b7 maxWait ${config.typing.maxWait ?? "none"}`,
 		`readOnlyBash: ${config.readOnlyBash ? "on" : "off"}`,
 		judgeLine(config),

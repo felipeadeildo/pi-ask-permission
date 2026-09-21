@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { defaultConfig } from "#core/config/schema.ts";
+import type { PermissionMode } from "#core/mode.ts";
 import { registerEvents } from "#pi/events.ts";
 import type { SessionState } from "#pi/session.ts";
 
@@ -22,7 +23,7 @@ function enabledJudge(): SessionState["config"] {
 	return { ...config, judge: { ...config.judge, enabled: true, never: ["*"] } };
 }
 
-function harness() {
+function harness(mode: PermissionMode = "manual") {
 	const entries: Entry[] = [];
 	const handlers = new Map<string, Handler>();
 
@@ -38,6 +39,7 @@ function harness() {
 
 	const state = {
 		config: enabledJudge(),
+		mode,
 		configFile: "/dev/null",
 		configWarnings: [],
 		grants: { session: new Set<string>(), project: new Set<string>(), global: new Set<string>() },
@@ -86,6 +88,10 @@ function judgeCall(id: string, command: string) {
 	return { toolName: "bash", toolCallId: id, input: { command } };
 }
 
+function writeCall(id: string) {
+	return { toolName: "write", toolCallId: id, input: { path: "a.ts", content: "x" } };
+}
+
 describe("judge cards in the transcript", () => {
 	test("the card is already there when the permission dialog opens", async () => {
 		const { entries, toolCall } = harness();
@@ -114,5 +120,65 @@ describe("judge cards in the transcript", () => {
 
 		await toolCall(judgeCall("call-2", "git push --force origin main"), fakeContext());
 		expect(entries).toHaveLength(2);
+	});
+});
+
+describe("session modes", () => {
+	test("yolo runs a bash call without opening the dialog", async () => {
+		const { toolCall } = harness("yolo");
+		let opened = false;
+
+		const result = await toolCall(
+			judgeCall("call-1", "rm -rf build"),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(result).toBeUndefined();
+		expect(opened).toBe(false);
+	});
+
+	test("accept edits runs a write without opening the dialog", async () => {
+		const { toolCall } = harness("accept-edits");
+		let opened = false;
+
+		const result = await toolCall(
+			writeCall("call-1"),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(result).toBeUndefined();
+		expect(opened).toBe(false);
+	});
+
+	test("accept edits still gates bash", async () => {
+		const { toolCall } = harness("accept-edits");
+		let opened = false;
+
+		await toolCall(
+			judgeCall("call-1", "git push origin main"),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(opened).toBe(true);
+	});
+
+	test("manual gates a write", async () => {
+		const { toolCall } = harness("manual");
+		let opened = false;
+
+		await toolCall(
+			writeCall("call-1"),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(opened).toBe(true);
 	});
 });

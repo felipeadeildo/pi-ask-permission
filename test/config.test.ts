@@ -57,6 +57,24 @@ describe("decodeConfig", () => {
 		expect(warnings).toHaveLength(1);
 	});
 
+	test("rejects a bad mode", () => {
+		const warnings: string[] = [];
+		expect(decodeConfig({ mode: "sometimes" }, warnings).mode).toBe(DEFAULT_CONFIG.mode);
+		expect(warnings).toHaveLength(1);
+	});
+
+	test("reads a valid mode", () => {
+		const warnings: string[] = [];
+		expect(decodeConfig({ mode: "accept-edits" }, warnings).mode).toBe("accept-edits");
+		expect(warnings).toEqual([]);
+	});
+
+	test("drops the removed yolo key and warns", () => {
+		const warnings: string[] = [];
+		expect(decodeConfig({ yolo: true }, warnings).mode).toBe("manual");
+		expect(warnings).toContain("yolo: removed, use mode and pick it per session; delete this key");
+	});
+
 	test("rejects an array where an object is expected", () => {
 		const warnings: string[] = [];
 		expect(decodeConfig({ allow: "bash" }, warnings).allow).toEqual(DEFAULT_CONFIG.allow);
@@ -93,7 +111,7 @@ describe("decodeConfig", () => {
 
 	test("an invalid higher-precedence value never widens access", () => {
 		const warnings: string[] = [];
-		const config = decodeConfig({ headless: 42, allow: null, yolo: "yes" }, warnings);
+		const config = decodeConfig({ headless: 42, allow: null, mode: "sometimes" }, warnings);
 		expect(config).toEqual(DEFAULT_CONFIG);
 		expect(warnings).toHaveLength(3);
 	});

@@ -1,4 +1,5 @@
 import { DEFAULT_JUDGE, defaultJudge, type JudgeConfig } from "#core/judge/config.ts";
+import { DEFAULT_MODE, type PermissionMode } from "#core/mode.ts";
 
 export type HeadlessMode = "allow" | "deny";
 
@@ -13,7 +14,7 @@ export interface PermissionConfig {
 	allow: string[];
 	headless: HeadlessMode | Record<string, HeadlessMode>;
 	followup: FollowupDelivery;
-	yolo: boolean;
+	mode: PermissionMode;
 	readOnlyBash: boolean;
 	typing: TypingConfig;
 	judge: JudgeConfig;
@@ -28,7 +29,7 @@ export const DEFAULT_CONFIG: PermissionConfig = {
 	allow: ["read", "grep", "find", "ls"],
 	headless: "deny",
 	followup: "result",
-	yolo: false,
+	mode: DEFAULT_MODE,
 	readOnlyBash: true,
 	typing: DEFAULT_TYPING,
 	judge: DEFAULT_JUDGE,

@@ -4,6 +4,7 @@ import { Container, type SettingItem, SettingsList, Text } from "@earendil-works
 import { isFollowupDelivery, isHeadlessMode, type PermissionConfig } from "#core/config/schema.ts";
 import { type GrantScope, GRANT_SCOPES } from "#core/grants.ts";
 import { POLICY_TEMPLATE, policyWarning } from "#core/judge/policy.ts";
+import { MODE_LABEL, modeFromLabel, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
 import { NAME } from "#identity";
 import { buildJudgeSettings, type JudgeSettings, judgeValues } from "#ui/settings/judge.ts";
 import { notifyJudgePolicyWarning } from "#ui/settings/status.ts";
@@ -11,6 +12,9 @@ import { notifyJudgePolicyWarning } from "#ui/settings/status.ts";
 export interface SettingsState {
 	config: PermissionConfig;
 	grants: Record<GrantScope, Set<string>>;
+	/** Effective mode for this session, read live so the dialog stays truthful. */
+	mode: () => PermissionMode;
+	setMode: (mode: PermissionMode) => void;
 	save: () => void;
 
 	onJudgeChange: () => void;
@@ -94,11 +98,11 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 				: [];
 
 			return [
+				modeItem(state.mode()),
 				followupItem(state.config),
 				judgeToggleItem(state.config),
 				...children,
 				headlessItem(state.config),
-				yoloItem(state.config),
 			];
 		};
 
@@ -135,9 +139,15 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 				return;
 			}
 
+			if (id === "mode") {
+				// Session-only: the mode never reaches config.json, so it cannot leak into other sessions.
+				const mode = modeFromLabel(value);
+				if (mode) state.setMode(mode);
+				return;
+			}
+
 			if (id === "followup" && isFollowupDelivery(value)) state.config.followup = value;
 			else if (id === "headless" && isHeadlessMode(value)) state.config.headless = value;
-			else if (id === "yolo") state.config.yolo = value === "on";
 			state.save();
 		};
 
@@ -149,7 +159,7 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 				1,
 			),
 		);
-		install("followup");
+		install("mode");
 
 		return {
 			render: (width: number) => container.render(width),
@@ -193,13 +203,13 @@ function headlessItem(config: PermissionConfig): SettingItem {
 	};
 }
 
-function yoloItem(config: PermissionConfig): SettingItem {
+export function modeItem(mode: PermissionMode): SettingItem {
 	return {
-		id: "yolo",
-		label: "Yolo mode",
-		currentValue: config.yolo ? "on" : "off",
-		values: ["off", "on"],
-		description: "Approve every call without asking",
+		id: "mode",
+		label: "Mode (this session)",
+		currentValue: MODE_LABEL[mode],
+		values: PERMISSION_MODES.map((entry) => MODE_LABEL[entry]),
+		description: "manual asks, accept edits runs file writes, yolo runs everything",
 	};
 }
 

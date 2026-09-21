@@ -10,10 +10,12 @@ import type { PermissionDecision } from "#core/decision.ts";
 import { grantKey, SCOPE_LABEL, type GrantScope } from "#core/grants.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeVerdictText, remember, warnOnce } from "#core/judge/report.ts";
+import { modeApproves } from "#core/mode.ts";
 import { isReadOnlyCommand } from "#core/readonly-bash.ts";
 import type { CallDescriptor } from "#core/target.ts";
 import { deriveTarget } from "#core/target.ts";
 import { NAME } from "#identity";
+import { clearModeStatus, renderModeStatus } from "#pi/mode.ts";
 import { editFailure } from "#pi/preflight.ts";
 import {
 	isGranted,
@@ -36,18 +38,20 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		for (const warning of state.configWarnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
 		loadGrantScopes(state, ctx);
 		notifyJudgePolicyWarning(state.config, ctx);
+		renderModeStatus(ctx, state.mode);
 		state.typing.start(ctx);
 	});
 
-	pi.on("session_shutdown", () => {
+	pi.on("session_shutdown", (_event, ctx) => {
+		clearModeStatus(ctx);
 		state.typing.stop();
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
 		const { config } = state;
-		if (config.yolo) return undefined;
-
 		const toolName = event.toolName;
+
+		if (modeApproves(state.mode, toolName)) return undefined;
 		if (isAllowed(config, toolName)) return undefined;
 
 		const target = deriveTarget(toolName, event.input);

@@ -9,7 +9,9 @@
   <a href="https://pi.dev/packages/pi-ask-permission"><img src="https://img.shields.io/badge/pi--package-6E56CF" alt="pi package"></a>
 </p>
 
-A permission dialog for the [Pi](https://pi.dev) coding agent. Three answers, each with room for a note that reaches the agent with the decision.
+Pi has no permission popups. This extension adds one.
+
+The dialog asks before a tool runs. Its three answers are `yes`, `always yes`, and `deny`, and any of them can carry a note that goes to the model with the tool result. Deny `npm install` with `use pnpm instead`, and the agent reads the correction while it keeps working.
 
 ```
 permission · bash
@@ -22,26 +24,17 @@ permission · bash
 ↑↓ or 1-3 pick   enter confirm   tab note   esc deny
 ```
 
-## Features
-
-- Yes, always yes, deny, and a note on any of them.
-- The dialog waits while you are mid-sentence, then opens.
-- Always yes asks depth and scope, and remembers the grant per session, project, or everywhere.
-- Read-only bash commands run without a prompt.
-- Optional AI approvals: a judge model decides first, and anything uncertain still reaches you.
-- Everything configurable from `/perm`, or one JSON file.
-
 ## Install
 
 ```bash
 pi install npm:pi-ask-permission
 ```
 
-Or `pi install git:github.com/felipeadeildo/pi-ask-permission`, or clone it and point `~/.pi/agent/settings.json` at `src/index.ts`.
+Or `pi install git:github.com/felipeadeildo/pi-ask-permission`, or clone the repo and point `~/.pi/agent/settings.json` at `src/index.ts`.
 
 ## The dialog
 
-Press `tab` on the highlighted row to attach a note:
+Press `tab` to attach a note to the highlighted row:
 
 ```
 permission · bash
@@ -54,11 +47,11 @@ permission · bash
 ↑↓ pick   enter confirm   esc back
 ```
 
-The note rides along with the tool result, so the agent reads "use pnpm instead" while it is still working. Approvals take a note too, for what you want to add. Each row keeps its own draft.
+Each row keeps its own draft, and approvals take a note too.
 
-If you are typing in the editor when a call arrives, the dialog waits for a pause. The footer reads `waiting for you to finish typing`, and by default it waits as long as you keep typing. `typing.maxWait` caps it.
+If you are typing in the editor when a call arrives, the dialog waits for a pause. The footer reads `waiting for you to finish typing`, and by default it waits as long as you keep typing. `typing.maxWait` caps the wait.
 
-Paste works like the main editor. `ctrl+v` drops in a clipboard image as its temp file path, and a long or multi-line paste collapses to a `[paste #1 +48 lines]` marker that expands when you confirm.
+Paste works like the main editor. `ctrl+v` inserts a clipboard image as its temp file path, and a long or multi-line paste collapses to a `[paste #1 +48 lines]` marker that expands on confirm.
 
 | Key                    | Does                                                                    |
 | ---------------------- | ----------------------------------------------------------------------- |
@@ -71,7 +64,7 @@ Digits only move the highlight, so any row can take a note or a plain confirm. T
 
 ## Always yes
 
-How wide the grant is, then how long it lasts.
+`always yes` opens a second step: which grant to remember, then how long it lasts.
 
 ```
 permission · bash
@@ -84,7 +77,7 @@ always yes for...
 scope: this session   (tab to change)
 ```
 
-The narrowest level is preselected, so `enter` grants exactly what you were looking at. File tools nest by directory, so a write can be approved for one file or the folder around it.
+The narrowest level is preselected, so `enter` grants exactly what was on screen. File tools nest by directory, so a write can be approved for one file or the folder around it.
 
 | Scope        | Stored in                                                | Survives                 |
 | ------------ | -------------------------------------------------------- | ------------------------ |
@@ -94,14 +87,32 @@ The narrowest level is preselected, so `enter` grants exactly what you were look
 
 The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level, so a `bash` grant never widens `write`. Project grants load only in a trusted project.
 
+## Session modes
+
+`Alt+M` cycles the session, and `/perm mode` does the same. `/perm mode yolo` sets one directly.
+
+| Mode           | Approves                                    |
+| -------------- | ------------------------------------------- |
+| `manual`       | nothing on its own; the normal gate decides |
+| `accept edits` | `edit` and `write`                          |
+| `yolo`         | every call                                  |
+
+Neither `accept edits` nor `yolo` consults the judge.
+
+The mode is session state. `Alt+M` and `/perm mode` never write to `config.json`, so turning on `yolo` in one session does not affect another. The `mode` field in `config.json` only sets where the next session starts.
+
+## Read-only bash
+
+Commands that only read run without a prompt: `cat`, `grep`, `wc`, `git log`, and chains of them. Anything that writes, substitutes a command, opens a subshell, assigns a variable, or continues on a second line asks. A redirect that discards output (`2>/dev/null`, `2>&1`, `>/dev/null`) does not. Turn the check off with `readOnlyBash`.
+
 ## AI approvals
 
-Off by default. Turn it on and a judge model gets first refusal on a call. A confident approval runs it, a confident denial blocks it, and anything uncertain falls through to the dialog. A timeout, an error, or a missing key also comes back to you.
+Off by default. With it on, a judge model answers first: a confident approval runs the call, a confident denial blocks it, and anything uncertain comes to you. So do timeouts, errors, and missing keys.
 
 Two backends:
 
-- **Jev**, TypeSafe's System One model. It is asked typed questions and answers with a verdict, a probability distribution, and a confidence.
-- **A pi model**. Any model you already configured, asked for strict JSON. A reply that is not valid JSON counts as no judgement.
+- **Jev**, TypeSafe's System One model, answers typed questions with a verdict, a probability distribution, and a confidence.
+- **A pi model** is asked for strict JSON. A reply that is not valid JSON counts as no judgement.
 
 ### Set up Jev
 
@@ -113,7 +124,7 @@ The extension registers an auth-only `typesafe` provider, so the key is stored t
 
 ### Write a policy
 
-The policy is the rulebook the judge reads. Turn on _AI approvals (judge)_ in `/perm` and a _Policy_ row appears.
+The policy is the rulebook the judge reads. Turn on `AI approvals (judge)` in `/perm` and a `Policy` row appears.
 
 | Preset               | Allows                                            | Still asks                              |
 | -------------------- | ------------------------------------------------- | --------------------------------------- |
@@ -138,23 +149,23 @@ Standard development is the default. A picker shows each preset's description, a
 Ask me.
 ```
 
-Turn on _Dry run_ first if you want to watch it decide without acting. Each decision shows up in the transcript as a card, and `/perm judge log` keeps the session history. If calls come back as `the judge could not decide: no response from ...`, run `/perm judge test`: one real request with a generous timeout, reporting the model, the latency, and the exact error.
+Turn on `Dry run` to watch it decide without acting. Each decision shows up in the transcript as a card, and `/perm judge log` keeps the session history. If calls come back as `the judge could not decide: no response from ...`, run `/perm judge test`: one real request with a generous timeout, reporting the model, the latency, and the exact error.
 
 ### How the judge decides
 
-The judge answers a fixed set of atomic questions: a verdict, how reversible the call is, whether it touches secrets, and whether it leaves the project. Code combines the answers. There is no broad "is this safe?" prompt.
+The judge answers a fixed set of atomic questions: a verdict, how reversible the call is, whether it touches secrets, and whether it leaves the project. Code combines the answers. There is no broad `is this safe?` prompt.
 
 ```text
 risk = 0.45 × reversibility + 0.30 × sensitive + 0.25 × outside
 ```
 
-A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, and `risk` is at or below `riskCeiling`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `onUncertain` says otherwise. The `never` list is checked in code first and always falls through to you.
+A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, and `risk` is at or below `riskCeiling`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `onUncertain` says otherwise. The `never` list is checked in code first, so a call on it is never auto-approved.
 
 The policy is authoritative and the tool call is treated as untrusted data, so a command cannot talk its way past `never`.
 
 ### Settings
 
-Turn on _AI approvals (judge)_ in `/perm` and its rows appear indented beneath it.
+These rows appear indented under `AI approvals (judge)` in `/perm`.
 
 | Setting              | Does                                                                                               |
 | -------------------- | -------------------------------------------------------------------------------------------------- |
@@ -170,33 +181,6 @@ Turn on _AI approvals (judge)_ in `/perm` and its rows appear indented beneath i
 | Judge with no UI     | Also judge in print, JSON, and subagent runs                                                       |
 | Remember approvals   | Treat a judge approval as a session grant                                                          |
 
-The raw config:
-
-```json
-{
-	"judge": {
-		"enabled": true,
-		"backend": "jev",
-		"model": "jev-latest",
-		"tools": ["bash"],
-		"never": [],
-		"thresholds": { "allow": 0.85, "deny": 0.8 },
-		"riskCeiling": 0.45,
-		"onUncertain": "ask",
-		"autoDeny": true,
-		"onError": "ask",
-		"headless": false,
-		"dryRun": false,
-		"grant": false,
-		"timeoutMs": 5000,
-		"cache": true,
-		"policy": "Allow tests and edits inside the project. Ask before network, installs, or deletes."
-	}
-}
-```
-
-`policy` defaults to the Standard development preset. A call the policy does not cover comes back to you, so an empty policy means the judge asks about everything.
-
 ## Configuration
 
 One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves it with the rest of the agent directory.
@@ -210,7 +194,7 @@ One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves
 	"allow": ["read", "grep", "find", "ls"],
 	"headless": "deny",
 	"followup": "result",
-	"yolo": false,
+	"mode": "manual",
 	"readOnlyBash": true,
 	"typing": { "pause": 1000, "maxWait": null }
 }
@@ -228,11 +212,11 @@ The file also carries the full `judge` block, disabled by default.
 }
 ```
 
-`followup` chooses where an approval note goes. `"result"` appends it to the tool result the model is already reading. `"message"` sends it as its own steering message. `yolo` approves everything, for a throwaway run.
+`followup` chooses where an approval note goes. `"result"` appends it to the tool result the model is already reading. `"message"` sends it as its own steering message.
 
-`typing` tunes that wait. `pause` is the quiet time in milliseconds before the dialog opens. `maxWait` caps the total wait, or `null` for no cap.
+`mode` is the mode a new session starts in. `"manual"` asks as usual, `"accept-edits"` runs file edits and writes without asking or judging, and `"yolo"` approves everything for a throwaway run. Change it from `/perm` or `Alt+M` and only the current session moves. Change it here and only the next session.
 
-`readOnlyBash` skips the dialog for bash commands that only read. `cat`, `grep`, `wc`, `git log`, and chains of them just run. A redirect to a real file, a command substitution, a subshell, a variable assignment, a second line, or any command that can write or execute still asks. A redirect that only discards output (`2>/dev/null`, `2>&1`, `>/dev/null`) does not ask.
+`typing` tunes the wait before the dialog opens. `pause` is the quiet time in milliseconds. `maxWait` caps the total wait, or `null` for no cap.
 
 A missing or malformed file falls back to the defaults and reports what it dropped. A typo never widens the gate.
 
@@ -240,7 +224,9 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 
 | Command               | Does                                                                     |
 | --------------------- | ------------------------------------------------------------------------ |
-| `/perm`               | settings dialog for the followup wire, judge, headless, and yolo         |
+| `/perm`               | settings dialog for the mode, followup wire, judge, and headless         |
+| `/perm mode`          | cycle the session mode (also `Alt+M`)                                    |
+| `/perm mode yolo`     | set the session mode (also `manual` and `accept-edits`)                  |
 | `/perm status`        | resolved config, grant counts per scope, and file paths                  |
 | `/perm judge`         | open the AI-approval settings                                            |
 | `/perm judge on`      | turn AI approvals on (also `off`)                                        |
@@ -253,25 +239,27 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 
 ## How a call is decided
 
-1. `yolo` is on, allow.
+1. The mode approves it: `yolo` approves everything, `accept-edits` approves `edit` and `write` outright.
 2. The tool is in `allow`, allow.
 3. A grant matches this tool and level, allow.
 4. `readOnlyBash` is on and the bash command only reads, allow.
 5. AI approvals are on and the tool is judged, ask the judge. A confident allow runs, a confident deny blocks, and anything uncertain continues.
 6. There is a UI, ask.[^edit]
-7. There is no UI, `headless` decides. With _Judge with no UI_ on, the judge gets the same first refusal first, then `headless` decides anything it could not.
+7. There is no UI, `headless` decides. With `Judge with no UI` on, the judge gets the same first refusal first, then `headless` decides anything it could not.
 
 [^edit]: An `edit` whose `oldText` cannot match the file is blocked with the matcher's own error, no dialog. Asking about an edit that is already going to fail only costs a keystroke.
 
 ## Limits
 
-It is a dialog, not a policy language. No wildcard rules, no path canonicalization, no symlink resolution. A command arrives as the agent wrote it and is judged by the person reading it.
+Grants are exact. There are no wildcard grants, no path canonicalization, and no symlink resolution. A command arrives as the agent wrote it and is judged by the person reading it.
 
-A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`, and the whole chain, because the depth picker reads text rather than parsing the shell. Grants on chains are coarse at the head and exact at the tail.
+A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`, and the whole chain, because the depth picker reads text instead of parsing the shell. Grants on chains are coarse at the head and exact at the tail.
 
 `allow` matches a tool name, not an argument, so allowing `bash` permits every bash command.
 
-The judge is a model, so it adds judgement, not a guarantee. It only ever narrows what reaches the dialog: a `never` pattern, a deterministic block, or an uncertain verdict still comes to you. It reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
+`accept edits` covers the built-in `edit` and `write` tools. A custom tool that writes files is not in that set, so it asks.
+
+The judge is a model. It narrows what reaches the dialog; it does not guarantee anything. A `never` pattern, a deterministic block, or an uncertain verdict still reaches you, and in `manual` the judge can only narrow. `yolo` and `accept edits` skip the judge for the tools they approve. The judge reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
 
 If you want deterministic rules with no human in the loop, this is the wrong tool.
 

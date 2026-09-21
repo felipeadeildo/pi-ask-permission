@@ -12,6 +12,7 @@ import {
 	saveGrants,
 } from "#core/grants.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
+import type { PermissionMode } from "#core/mode.ts";
 import { NAME } from "#identity";
 import { TypingMonitor } from "#ui/typing.ts";
 
@@ -26,6 +27,8 @@ export interface JudgeHealth {
 
 export interface SessionState {
 	config: PermissionConfig;
+	/** Effective mode for this session; `config.mode` is only the on-disk default. */
+	mode: PermissionMode;
 	configFile: string;
 	configWarnings: string[];
 	grants: Record<GrantScope, Set<string>>;
@@ -42,6 +45,7 @@ export function createSession(): SessionState {
 
 	return {
 		config: loaded.config,
+		mode: loaded.config.mode,
 		configFile: loaded.path,
 		configWarnings: loaded.warnings,
 		grants: { session: new Set(), project: new Set(), global: new Set() },
