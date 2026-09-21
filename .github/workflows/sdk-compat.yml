@@ -213,7 +213,7 @@ jobs:
               echo "</details>"
             fi
             echo
-            echo "Opened by \`sdk-compat\`, so CI on this PR waits for a maintainer to approve it."
+            echo "No CI runs on this PR, because the branch was pushed with the default token. The \`verify\` job on the run above is the check."
           } > body.md
 
           number=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
