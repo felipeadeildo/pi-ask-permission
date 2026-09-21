@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.0](https://github.com/felipeadeildo/pi-ask-permission/compare/v1.2.0...v2.0.0) (2026-09-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* `yolo` is removed from config.json. Set `mode` to "manual", "accept-edits", or "yolo" instead.
+
+### Features
+
+* replace the persisted yolo flag with session modes ([3380e6c](https://github.com/felipeadeildo/pi-ask-permission/commit/3380e6ce760ef672c66621fecde2744b77a8aadd))
+
+
+### Bug Fixes
+
+* **readonly:** accept benign redirects, sed address ranges, and quoted substitutions ([fe4bb1e](https://github.com/felipeadeildo/pi-ask-permission/commit/fe4bb1e1cbb47200a71770ec5434c0430f76007d))
+
 ## [1.2.0](https://github.com/felipeadeildo/pi-ask-permission/compare/v1.1.0...v1.2.0) (2026-09-20)
 
 
