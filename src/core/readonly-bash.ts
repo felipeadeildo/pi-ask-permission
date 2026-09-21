@@ -73,7 +73,6 @@ const GIT_BRANCH_FLAGS = new Set([
 	"--no-color",
 ]);
 const GIT_BRANCH_SHORT_LETTERS = new Set(["a", "r", "l", "v", "i"]);
-// These take their value as a separate word, so the next token belongs to the flag.
 const GIT_BRANCH_VALUE_FLAGS = new Set([
 	"--contains",
 	"--no-contains",
@@ -216,7 +215,6 @@ export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = proc
 	return isReadOnlySegment(segment, env);
 }
 
-// Backticks and `$(` run commands, unless single quotes make them literal.
 function hasCommandSubstitution(command: string): boolean {
 	let singleQuoted = false;
 
@@ -243,7 +241,6 @@ function operatorOf(entry: ParseEntry | undefined): string | undefined {
 	return entry.op;
 }
 
-// Redirections to `/dev/null` and fd duplications do not touch the filesystem.
 // Returns how many following tokens the redirect consumed.
 function safeRedirect(tokens: ParseEntry[], index: number): number | undefined {
 	const op = operatorOf(tokens[index]);
@@ -390,7 +387,6 @@ function splitFlag(arg: string): [string, string | undefined] {
 	return [arg.slice(0, equals), arg.slice(equals + 1)];
 }
 
-// Bundled shorts such as `-av` are safe only when every letter is.
 function isShortCluster(arg: string, letters: Set<string>): boolean {
 	if (!/^-[^-]/.test(arg)) return false;
 	for (const letter of arg.slice(1)) {

@@ -72,7 +72,6 @@ export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOut
 	return { action, reason, record };
 }
 
-/** Dry run records the verdict but asks anyway. */
 function resolveAction(
 	config: JudgeConfig,
 	wouldAct: JudgeAction,

@@ -63,7 +63,6 @@ export function resetJudgeHealth(state: SessionState): void {
 	state.judgeHealth.retryAt = 0;
 }
 
-/** Counts a failure and pauses the judge once failures pile up. */
 export function noteJudgeFailure(state: SessionState, ctx: ExtensionContext): void {
 	state.judgeHealth.failures++;
 	if (state.judgeHealth.failures < JUDGE_FAILURE_LIMIT) return;

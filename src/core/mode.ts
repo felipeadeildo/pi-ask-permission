@@ -24,12 +24,10 @@ export function isPermissionMode(value: unknown): value is PermissionMode {
 	return PERMISSION_MODES.some((mode) => mode === value);
 }
 
-/** Maps the label shown in the settings list back to the mode id. */
 export function modeFromLabel(label: string): PermissionMode | undefined {
 	return PERMISSION_MODES.find((mode) => MODE_LABEL[mode] === label);
 }
 
-/** Parses a `/perm mode` argument, tolerating a few spellings. */
 export function parseMode(text: string): PermissionMode | undefined {
 	const value = text.trim().toLowerCase();
 	if (value === "accept" || value === "edits" || value === "accept edits") return "accept-edits";
@@ -41,7 +39,6 @@ export function nextMode(mode: PermissionMode): PermissionMode {
 	return PERMISSION_MODES[(index + 1) % PERMISSION_MODES.length] ?? DEFAULT_MODE;
 }
 
-/** True when the mode approves this tool before any other rule runs. */
 export function modeApproves(mode: PermissionMode, toolName: string): boolean {
 	if (mode === "yolo") return true;
 	if (mode === "accept-edits") return EDIT_TOOLS.has(toolName);

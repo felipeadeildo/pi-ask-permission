@@ -16,7 +16,6 @@ export interface JudgeConfig {
 	model: string;
 	/** Tool patterns the judge may decide. Empty means it never runs. */
 	tools: string[];
-	/** Patterns it may never auto-approve, whatever it answers. */
 	never: string[];
 	thresholds: JudgeThresholds;
 	riskCeiling: number;
@@ -25,9 +24,7 @@ export interface JudgeConfig {
 	onError: JudgeFallback;
 	/** Also judge print, JSON, and subagent runs. */
 	headless: boolean;
-	/** Show the verdict but still ask. */
 	dryRun: boolean;
-	/** Remember judge approvals for the session. */
 	grant: boolean;
 	timeoutMs: number;
 	cache: boolean;
