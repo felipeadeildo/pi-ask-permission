@@ -213,7 +213,7 @@ jobs:
               echo "</details>"
             fi
             echo
-            echo "No CI runs on this PR, because the branch was pushed with the default token. The \`verify\` job on the run above is the check."
+            echo "\`verify\` already ran against this version in the workflow run above. The \`CI\` run on this PR sits in \`action_required\` until a maintainer approves it, which is how GitHub treats a pull request opened by \`github-actions[bot]\`."
           } > body.md
 
           number=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
