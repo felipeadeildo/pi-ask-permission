@@ -48,6 +48,24 @@ describe("read-only chains", () => {
 		expect(ro("sed '1,3d' file")).toBe(true);
 	});
 
+	test("allows a loop over a literal word list", () => {
+		expect(ro(`for f in a.tsx b.tsx; do echo "=== $f ==="; cat "$f"; done`)).toBe(true);
+		expect(ro(`for f in *.ts; do cat "$f"; done`)).toBe(true);
+		expect(ro(`for a in x; do for b in y; do wc -l "$b"; done; done`)).toBe(true);
+		expect(ro(`for f in do; do cat "$f"; done`)).toBe(true);
+	});
+
+	test("a loop spreads over lines", () => {
+		expect(
+			ro(`cd /repo && for f in\n a.tsx b.tsx\n c.tsx; do\n echo "===== $f ====="; cat "$f"; done`),
+		).toBe(true);
+	});
+
+	test("a bare newline separates commands", () => {
+		expect(ro("cd /repo\ncat a.tsx")).toBe(true);
+		expect(ro("cat a.tsx\nhead -n 5 b.tsx")).toBe(true);
+	});
+
 	test("treats backticks and $() inside single quotes as literal", () => {
 		expect(ro("grep -n '^`x`' file")).toBe(true);
 		expect(ro("echo '$(date)'")).toBe(true);
@@ -73,9 +91,33 @@ describe("read-only refusals", () => {
 		expect(ro("uniq a b 2>/dev/null")).toBe(false);
 	});
 
-	test("multi-line input, because newlines fold into whitespace", () => {
+	test("multi-line input, because a newline is a separator and not whitespace", () => {
 		expect(ro("cat a\nrm -rf /")).toBe(false);
+		expect(ro("echo in\nrm -rf /")).toBe(false);
 		expect(ro("cd /repo && cat > ./x <<'EOF'\nrm -rf /\nEOF")).toBe(false);
+	});
+
+	test("a comment never swallows the next line", () => {
+		expect(ro("cat a # rm -rf /\nrm -rf /")).toBe(false);
+		expect(ro("cat a#b\ncat c")).toBe(true);
+	});
+
+	test("a loop that hides a write, a flag, or a body", () => {
+		expect(ro(`for f in a; do rm -rf /; done`)).toBe(false);
+		expect(ro(`for f in a; do sed -i file; done`)).toBe(false);
+		expect(ro(`for f in -i; do sed $f file; done`)).toBe(false);
+		expect(ro(`for f in "rm -rf /"; do cat "$f"; done`)).toBe(false);
+		expect(ro(`for f in a b; do cat "$f"; echo x > /tmp/out; done`)).toBe(false);
+		expect(ro(`for f in a; do cat "$f"; done && rm -rf /`)).toBe(false);
+	});
+
+	test("a loop that cannot be read still checks its body", () => {
+		expect(ro(`for f in; do rm -rf /; done`)).toBe(false);
+		expect(ro(`for f in do; do rm -rf /; done`)).toBe(false);
+		expect(ro(`for f; do cat "$f"; done`)).toBe(false);
+		expect(ro(`for f in a; do cat "$f"`)).toBe(false);
+		expect(ro(`for f in "$@"; do cat "$f"; done`)).toBe(false);
+		expect(ro(`for f in a; do $f; done`)).toBe(false);
 	});
 
 	test("writers and executors", () => {
@@ -141,5 +183,83 @@ describe("read-only refusals", () => {
 
 	test("BASH_ENV disables the check, because it can define functions", () => {
 		expect(ro("cat file", { BASH_ENV: "/tmp/startup.sh" })).toBe(false);
+	});
+});
+
+describe("read-only attacks", () => {
+	const manyWords = `for f in ${Array.from({ length: 200 }, () => "a").join(" ")}; do cat "$f"; done`;
+
+	test("a forged flag, name, or word list stays out", () => {
+		for (const command of [
+			// A reference the classifier cannot read cannot be trusted with a dash.
+			`for f in o; do sort -"$f" out file; done`,
+			`for f in a; do sort --output="$f" out file; done`,
+			`sort -"$UNSET" out file`,
+			// The literal `cat` must not become `cat$f` at run time.
+			`for f in x; do "cat$f" file; done`,
+			`for f in x; do "\${f}cat" file; done`,
+			// The word list is literal, or the loop reads nothing.
+			`for f in "$@"; do sort "$f" out file; done`,
+			`for f in "$HOME"; do cat "$f"; done`,
+			`for f in a"$b"; do cat "$f"; done`,
+			`for f in -i; do sed $f file; done`,
+			`for f in --pre; do rg "$f" x; done`,
+			`for f in --output=out; do sort "$f" file; done`,
+			`for f in -rf; do rm "$f"; done`,
+			`for f in "a b"; do cat "$f"; done`,
+			`for f in "rm -rf /"; do cat "$f"; done`,
+			`for f in a=b; do cat "$f"; done`,
+			// A body that reads is the only body that runs.
+			`for f in a; do rm -rf /; done`,
+			`for f in a; do sed -i file; done`,
+			`for f in a; do cat "$f"; echo x > /tmp/out; done`,
+			`for f in a; do cat "$f"; tee out; done`,
+			`for f in a; do cat "$f" | sh; done`,
+			`for f in a; do xargs rm; done`,
+			`for f in a; do eval "$f"; done`,
+			`for f in rm; do $f -rf /; done`,
+			`for f in a; do IFS=, cat "$f"; done`,
+			`for f in a; do cat "$f" < input; done`,
+			`for f in a; do $(rm -rf /); done`,
+			"for f in a; do cat `cat`; done",
+			// Loop syntax the reader cannot pin down fails closed.
+			`for f in; do rm -rf /; done`,
+			`for f in do; do rm -rf /; done`,
+			`for f; do cat "$f"; done`,
+			`for $f in a; do cat "$f"; done`,
+			`for f in a; do cat "$f"`,
+			`for f in a; do cat "$f"; done; done`,
+			`for f in a b; do cat "$f"; done && rm -rf /`,
+			`for f in a; do cat "$f"; done || rm -rf /`,
+			`for f in a; do cat "$f"; done > /tmp/out`,
+			manyWords,
+			`for a in x; do for b in x; do for c in x; do for d in x; do for e in x; do cat a; done; done; done; done; done`,
+			// A newline and a comment cannot hide the second command.
+			`cat a\nrm -rf /`,
+			`echo in\nrm -rf /`,
+			`cat a # rm -rf /\nrm -rf /`,
+			`cat a\r\nrm -rf /`,
+			`cat "a`,
+		]) {
+			expect(ro(command)).toBe(false);
+		}
+	});
+
+	test("the reads that should still pass do", () => {
+		for (const command of [
+			`for f in a; do cat "$f"; done`,
+			`for f in a; do cat $f; done`,
+			`for f in *.ts; do head -n 5 "$f"; done`,
+			`for f in a b; do echo "== $f =="; cat "$f"; head -n 2 "$f"; done`,
+			`for a in x; do for b in y; do wc -l "$b"; done; done`,
+			`cd /repo && for f in a b; do cat "$f"; done > /dev/null`,
+			`for f in a; do cat "$f" | head -1; done`,
+			`for f in a; do cat a; done`,
+			`cat a#b\ncat c`,
+			`cat '$f'`,
+			`echo "a\nb"`,
+		]) {
+			expect(ro(command)).toBe(true);
+		}
 	});
 });

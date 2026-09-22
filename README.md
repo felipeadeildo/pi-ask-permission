@@ -84,7 +84,7 @@ The mode is session state. `Alt+M` and `/perm mode` never write to `config.json`
 
 ## Read-only bash
 
-Commands that only read run without a prompt: `cat`, `grep`, `wc`, `git log`, `git branch` (listing), `git remote` (listing), and chains of them. Anything that writes, substitutes a command, opens a subshell, assigns a variable, or continues on a second line asks. A redirect that discards output (`2>/dev/null`, `2>&1`, `>/dev/null`) does not. Turn the check off with `readOnlyBash`.
+Commands that only read run without a prompt: `cat`, `grep`, `wc`, `git log`, `git branch` (listing), `git remote` (listing), chains of them, and a `for` loop over a literal word list. Anything that writes, substitutes a command, opens a subshell, or assigns a variable asks. A redirect that discards output (`2>/dev/null`, `2>&1`, `>/dev/null`) does not. Turn the check off with `readOnlyBash`.
 
 ## AI approvals
 
@@ -244,7 +244,7 @@ The judge is a model. It narrows what reaches the dialog; it does not guarantee 
 
 If you want deterministic rules with no human in the loop, this is the wrong tool.
 
-The read-only check is a classifier, not a sandbox. It matches the command name as written and does not resolve `PATH`, so a `cat` that is a different binary earlier on `PATH` passes the check and then runs. It refuses a name shadowed by an exported shell function, and `BASH_ENV` disables the check because that file can define functions. It also refuses anything it cannot prove harmless, so a few safe commands still ask.
+The read-only check is a classifier, not a sandbox. It matches the command name as written and does not resolve `PATH`, so a `cat` that is a different binary earlier on `PATH` passes the check and then runs. It refuses a name shadowed by an exported shell function, and `BASH_ENV` disables the check because that file can define functions. It also refuses anything it cannot prove harmless, so a few safe commands still ask. A loop is judged the same way: the word list has to be literal and the body has to read.
 
 ## Compatibility
 

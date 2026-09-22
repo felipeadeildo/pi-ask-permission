@@ -88,6 +88,13 @@ const GIT_BRANCH_OPTIONAL_VALUE_FLAGS = new Set(["--color", "--column", "--abbre
 const GIT_REMOTE_FLAGS = new Set(["-v", "--verbose"]);
 const GIT_REMOTE_SUBCOMMANDS = new Set(["show", "get-url"]);
 
+const LOOP_DEPTH_LIMIT = 4;
+const LOOP_WORD_LIMIT = 128;
+const LOOP_TOKEN_LIMIT = 4096;
+const REFERENCE = "AASKREF";
+const LOOP_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const LOOP_WORD = /^[A-Za-z0-9_./@%+,:^~*?[\]-]+$/;
+
 const READ_ONLY = new Set([
 	"cat",
 	"head",
@@ -176,16 +183,22 @@ const ARG_CHECKS: Record<string, (args: string[]) => boolean> = {
 
 // A classifier, not a sandbox: names are matched as written.
 export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = process.env): boolean {
-	if (/[\r\n]/.test(command)) return false;
 	if (env.BASH_ENV) return false;
 	if (hasCommandSubstitution(command)) return false;
 
+	const normalized = normalizeCommand(command);
+	if (normalized === undefined) return false;
+
 	let tokens: ParseEntry[];
 	try {
-		tokens = parse(command);
+		tokens = parse(normalized);
 	} catch {
 		return false;
 	}
+
+	const expanded = expandLoops(tokens);
+	if (expanded === undefined) return false;
+	tokens = expanded;
 
 	let segment: string[] = [];
 	for (let index = 0; index < tokens.length; index++) {
@@ -213,6 +226,227 @@ export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = proc
 		segment = [];
 	}
 	return isReadOnlySegment(segment, env);
+}
+
+// A newline is whitespace only where a list can continue, which the classifier does
+// not model. Every newline becomes a separator and readLoop absorbs the extras.
+function normalizeCommand(command: string): string | undefined {
+	let out = "";
+	let single = false;
+	let double = false;
+
+	for (let index = 0; index < command.length; index++) {
+		const char = command[index] ?? "";
+		if (char === "\r") return undefined;
+
+		if (single) {
+			out += char;
+			if (char === "'") single = false;
+			continue;
+		}
+
+		if (char === "\\") {
+			const next = command[index + 1];
+			if (next === "\n") {
+				index++;
+				continue;
+			}
+			out += char;
+			if (next !== undefined) {
+				out += next;
+				index++;
+			}
+			continue;
+		}
+
+		if (char === "'") {
+			if (!double) single = true;
+			out += char;
+			continue;
+		}
+
+		if (char === '"') {
+			double = !double;
+			out += char;
+			continue;
+		}
+
+		// A comment has to go before the newline folds, or it would swallow the next line.
+		if (char === "#" && !double && startsWord(out)) {
+			while (index + 1 < command.length && command[index + 1] !== "\n") index++;
+			continue;
+		}
+
+		if (char === "\n") {
+			out += double ? "\n" : ";";
+			continue;
+		}
+
+		// shell-quote drops a reference it cannot expand, leaving `"cat$f"` to read as
+		// `cat` and `-"$f"` as `-`. The marker keeps the reference in the word.
+		if (char === "$") {
+			const end = referenceEnd(command, index);
+			if (end !== undefined) {
+				out += REFERENCE;
+				index = end - 1;
+				continue;
+			}
+		}
+
+		// shell-quote reads a `#` anywhere as a comment, so a mid-word one is escaped.
+		out += char === "#" && !double ? "\\#" : char;
+	}
+
+	return single || double ? undefined : out;
+}
+
+function startsWord(text: string): boolean {
+	const last = text.at(-1);
+	return last === undefined || /[\s;&|()<>]/.test(last);
+}
+
+// Returns the index one past the reference, or undefined for a `$` that expands to
+// something the classifier already refuses.
+function referenceEnd(command: string, start: number): number | undefined {
+	if (command[start + 1] === "{") {
+		const close = command.indexOf("}", start + 2);
+		return close < 0 ? undefined : close + 1;
+	}
+	if (!/[A-Za-z0-9_@*#?$!-]/.test(command[start + 1] ?? "")) return undefined;
+
+	let end = start + 2;
+	while (/[A-Za-z0-9_]/.test(command[end] ?? "")) end++;
+	return end;
+}
+
+function startsSegment(tokens: ParseEntry[], index: number): boolean {
+	if (index === 0) return true;
+	if (tokens[index - 1] === "do") return true;
+
+	const op = operatorOf(tokens[index - 1]);
+	return op !== undefined && SEPARATORS.has(op);
+}
+
+function isSemicolon(entry: ParseEntry | undefined): boolean {
+	return operatorOf(entry) === ";";
+}
+
+interface Loop {
+	words: string[];
+	body: ParseEntry[];
+	end: number;
+}
+
+// The body reads the same for every word, so unrolling is what puts it through the
+// segment walk.
+function expandLoops(tokens: ParseEntry[], depth = 0): ParseEntry[] | undefined {
+	if (depth > LOOP_DEPTH_LIMIT) return undefined;
+
+	const expanded: ParseEntry[] = [];
+	let index = 0;
+
+	while (index < tokens.length) {
+		const token = tokens[index];
+		if (token === undefined) break;
+		if (token === "for" && startsSegment(tokens, index)) {
+			const loop = readLoop(tokens, index);
+			if (loop === undefined) return undefined;
+
+			const body = expandLoops(loop.body, depth + 1);
+			if (body === undefined) return undefined;
+
+			// A list that reads as empty still has to face the check.
+			const copies = Math.max(loop.words.length, 1);
+			for (let copy = 0; copy < copies; copy++) {
+				if (copy > 0) expanded.push({ op: ";" });
+				expanded.push(...body);
+			}
+			if (expanded.length > LOOP_TOKEN_LIMIT) return undefined;
+
+			index = loop.end;
+			continue;
+		}
+
+		expanded.push(token);
+		index++;
+	}
+
+	return expanded;
+}
+
+function readLoop(tokens: ParseEntry[], start: number): Loop | undefined {
+	let index = start + 1;
+
+	const name = tokens[index];
+	if (typeof name !== "string" || name.includes(REFERENCE) || !LOOP_NAME.test(name)) {
+		return undefined;
+	}
+	index++;
+
+	if (tokens[index] !== "in") return undefined;
+	index++;
+
+	const words: string[] = [];
+	// bash reserves `do` only where a separator opened the position.
+	while (index < tokens.length) {
+		const token = tokens[index];
+		if (token === "do" && startsSegment(tokens, index)) break;
+
+		if (isSemicolon(token)) {
+			index++;
+			continue;
+		}
+
+		const word = loopWord(token);
+		if (word === undefined) return undefined;
+		if (words.push(word) > LOOP_WORD_LIMIT) return undefined;
+		index++;
+	}
+
+	if (tokens[index] !== "do") return undefined;
+	index++;
+
+	const body: ParseEntry[] = [];
+	let nested = 0;
+	while (index < tokens.length) {
+		const token = tokens[index];
+		if (token === undefined) break;
+		if (typeof token === "string" && startsSegment(tokens, index)) {
+			if (token === "for") nested++;
+			if (token === "done") {
+				if (nested === 0) break;
+				nested--;
+			}
+		}
+		body.push(token);
+		index++;
+	}
+
+	if (tokens[index] !== "done") return undefined;
+
+	return { words, body: trimSeparators(body), end: index + 1 };
+}
+
+function loopWord(entry: ParseEntry | undefined): string | undefined {
+	if (typeof entry === "string") return isLoopWord(entry) ? entry : undefined;
+	if (entry !== undefined && "op" in entry && entry.op === "glob" && isLoopWord(entry.pattern)) {
+		return entry.pattern;
+	}
+	return undefined;
+}
+
+// The value is invisible, so the word list stays literal: no references, flags, or
+// shell metacharacters.
+function isLoopWord(word: string): boolean {
+	return !word.includes(REFERENCE) && !word.startsWith("-") && LOOP_WORD.test(word);
+}
+
+function trimSeparators(tokens: ParseEntry[]): ParseEntry[] {
+	let start = 0;
+	let end = tokens.length;
+	while (start < end && isSemicolon(tokens[start])) start++;
+	while (end > start && isSemicolon(tokens[end - 1])) end--;
+	return tokens.slice(start, end);
 }
 
 function hasCommandSubstitution(command: string): boolean {
@@ -270,6 +504,8 @@ function dropFileDescriptor(segment: string[]): void {
 }
 
 function isReadOnlySegment(words: string[], env: NodeJS.ProcessEnv): boolean {
+	if (words.some(isSynthesizedFlag)) return false;
+
 	let start = 0;
 	while (words[start] === "!") start++;
 
@@ -280,6 +516,11 @@ function isReadOnlySegment(words: string[], env: NodeJS.ProcessEnv): boolean {
 
 	const check = ARG_CHECKS[name];
 	return check ? check(words.slice(start + 1)) : READ_ONLY.has(name);
+}
+
+// A reference hides its value, so a dash-led word could be a flag the value completes.
+function isSynthesizedFlag(word: string): boolean {
+	return word.startsWith("-") && word.includes(REFERENCE);
 }
 
 function safeSed(args: string[]): boolean {
