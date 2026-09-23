@@ -28,8 +28,9 @@ import {
 type Phase = "menu" | "levels";
 
 const TITLE_PREFIX = "\u256d\u2500 ";
-const TITLE_SUFFIX = " \u256e";
-const TITLE_CHROME_WIDTH = visibleWidth(TITLE_PREFIX) + visibleWidth(TITLE_SUFFIX);
+const TITLE_SUFFIX = "\u256e";
+// The 1 is the space between the title and its dashes.
+const TITLE_CHROME_WIDTH = visibleWidth(TITLE_PREFIX) + 1 + visibleWidth(TITLE_SUFFIX);
 
 const SUMMARY_ROWS = 3;
 const DIFF_ROWS = 16;
@@ -388,7 +389,7 @@ export class AskDialog implements Component, Focusable {
 		return (
 			this.theme.fg("border", TITLE_PREFIX) +
 			label +
-			this.theme.fg("border", `${"\u2500".repeat(dashes)}${TITLE_SUFFIX}`)
+			this.theme.fg("border", ` ${"\u2500".repeat(dashes)}${TITLE_SUFFIX}`)
 		);
 	}
 }
