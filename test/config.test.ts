@@ -340,16 +340,13 @@ describe("config file", () => {
 		expect(loaded.config.notes).toBe("message");
 		expect(loaded.config.judge.alwaysAsk).toEqual(["sudo*"]);
 		expect(loaded.config.judge.canDeny).toBe(false);
-		expect(loaded.warnings).toEqual([
-			"followup is now notes",
-			"judge.autoDeny is now judge.canDeny",
-			"judge.never is now judge.alwaysAsk",
-		]);
+		expect(loaded.warnings).toEqual([]);
+		expect(loaded.updated).toBe(true);
 
 		const rewritten = JSON.parse(readFileSync(configPath(), "utf8"));
 		expect(rewritten.followup).toBeUndefined();
 		expect(rewritten.notes).toBe("message");
-		expect(loadConfig().warnings).toEqual([]);
+		expect(loadConfig().updated).toBeUndefined();
 	});
 
 	test("a loaded config does not alias the exported defaults", () => {

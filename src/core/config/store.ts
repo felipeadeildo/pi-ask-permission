@@ -13,6 +13,8 @@ export interface LoadedConfig {
 	config: PermissionConfig;
 	path: string;
 	warnings: string[];
+	/** The file used names from before 3.0 and was rewritten. */
+	updated?: boolean;
 }
 
 export function configPath(): string {
@@ -53,7 +55,10 @@ export function loadConfig(): LoadedConfig {
 
 		const warnings: string[] = [];
 		const config = decodeConfig(raw, warnings);
-		if (isOutdated(raw)) writeConfigFile(path, config);
+		if (isOutdated(raw)) {
+			writeConfigFile(path, config);
+			return { config, path, warnings, updated: true };
+		}
 		return { config, path, warnings };
 	} catch (error) {
 		return {

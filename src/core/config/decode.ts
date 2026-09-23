@@ -90,13 +90,17 @@ const RENAMED: [section: "judge" | undefined, from: string, to: string][] = [
 	["judge", "grant", "rememberApprovals"],
 ];
 
-/** Whether the file still uses a key from before 3.0, so saving it would rewrite it. */
+/** Whether the file still uses a key from before 3.0, so loading it rewrites it. */
 export function isOutdated(input: unknown): boolean {
-	const warnings: string[] = [];
-	migrate(input, warnings);
-	return warnings.length > 0;
+	if (!isObject(input)) return false;
+	const judge = isObject(input.judge) ? input.judge : {};
+	return (
+		"yolo" in input ||
+		RENAMED.some(([section, from]) => from in (section === undefined ? input : judge))
+	);
 }
 
+// A rename keeps the value and says nothing: the file is rewritten with the new name.
 function migrate(input: unknown, warnings: string[]): unknown {
 	if (!isObject(input)) return input;
 
@@ -109,8 +113,6 @@ function migrate(input: unknown, warnings: string[]): unknown {
 
 		if (!(to in target)) target[to] = target[from];
 		delete target[from];
-		const prefix = section === undefined ? "" : `${section}.`;
-		warnings.push(`${prefix}${from} is now ${prefix}${to}`);
 	}
 
 	if (next.mode === "yolo") {

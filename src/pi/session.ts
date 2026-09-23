@@ -78,6 +78,7 @@ export function loadSessionConfig(state: SessionState, ctx: ExtensionContext): v
 	const loaded = loadConfig();
 	state.config = loaded.config;
 	for (const warning of loaded.warnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
+	if (loaded.updated) ctx.ui.notify(`${NAME}: config.json updated to the 3.0 names`, "info");
 
 	state.typing.stop();
 	state.typing = new TypingMonitor(loaded.config.typing.pause, loaded.config.typing.maxWait);
