@@ -9,7 +9,6 @@ import { DEFAULT_CONFIG, type PermissionConfig } from "#core/config/schema.ts";
 import { configPath, loadConfig, saveConfig } from "#core/config/store.ts";
 import { DEFAULT_JUDGE } from "#core/judge/config.ts";
 import { decodeJudge } from "#core/judge/decode.ts";
-import { agentDir } from "#identity";
 
 describe("matchesPattern", () => {
 	test.each([
@@ -292,10 +291,6 @@ describe("config file", () => {
 		if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
 		else process.env.PI_CODING_AGENT_DIR = previous;
 		rmSync(dir, { recursive: true, force: true });
-	});
-
-	test("agentDir honors PI_CODING_AGENT_DIR", () => {
-		expect(agentDir()).toBe(dir);
 	});
 
 	test("config lives outside the checkout, under the agent dir", () => {

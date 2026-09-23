@@ -1,9 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+
 import { decodeConfig } from "#core/config/decode.ts";
 import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
-import { agentDir, CONFIG_DIR } from "#identity";
+import { CONFIG_DIR } from "#identity";
 import { describe, isRecord } from "#util/primitives.ts";
 
 export interface LoadedConfig {
@@ -13,11 +15,11 @@ export interface LoadedConfig {
 }
 
 export function configPath(): string {
-	return join(agentDir(), "extensions", CONFIG_DIR, "config.json");
+	return join(getAgentDir(), "extensions", CONFIG_DIR, "config.json");
 }
 
 export function grantsPath(): string {
-	return join(agentDir(), "extensions", CONFIG_DIR, "grants.json");
+	return join(getAgentDir(), "extensions", CONFIG_DIR, "grants.json");
 }
 
 export function projectGrantsPath(cwd: string, configDirName: string): string {
