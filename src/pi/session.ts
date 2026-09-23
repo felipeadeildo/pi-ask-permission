@@ -10,6 +10,7 @@ import {
 } from "#core/config/store.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
 import type { PermissionMode } from "#core/mode.ts";
+import type { ToolAdapter } from "#core/tools.ts";
 import { NAME } from "#identity";
 import { record } from "#pi/session-entries.ts";
 import { TypingMonitor } from "#ui/typing.ts";
@@ -32,6 +33,7 @@ export interface SessionState {
 	judgeWarned: Set<string>;
 	judgeHealth: JudgeHealth;
 	typing: TypingMonitor;
+	customTools: Map<string, Partial<ToolAdapter>>;
 }
 
 export function createSession(): SessionState {
@@ -47,6 +49,7 @@ export function createSession(): SessionState {
 		judgeWarned: new Set(),
 		judgeHealth: { failures: 0, retryAt: 0 },
 		typing: new TypingMonitor(),
+		customTools: new Map(),
 	};
 }
 

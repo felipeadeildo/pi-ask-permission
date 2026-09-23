@@ -247,7 +247,7 @@ A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`
 
 `allow` matches a tool name, not an argument, so allowing `bash` permits every bash command.
 
-`accept edits` covers the built-in `edit` and `write` tools. A custom tool that writes files is not in that set, so it asks.
+`accept edits` covers `edit`, `write`, and any tool that declares `edits: true` (see below). Anything else asks.
 
 The judge is a model. It narrows what reaches the dialog; it does not guarantee anything. An `alwaysAsk` pattern, a deterministic block, or an uncertain verdict still reaches you, and in `manual` the judge can only narrow. `auto` and `accept edits` skip the judge for the tools they approve. The judge reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
 
@@ -256,6 +256,32 @@ A bash command whose paths the check cannot read counts as outside. `$HOME`, `$S
 If you want deterministic rules with no human in the loop, this is the wrong tool.
 
 The read-only check is a classifier, not a sandbox. It matches the command name as written and does not resolve `PATH`, so a `cat` that is a different binary earlier on `PATH` passes the check and then runs. It refuses a name shadowed by an exported shell function, and `BASH_ENV` disables the check because that file can define functions. It also refuses anything it cannot prove harmless, so a few safe commands still ask.
+
+## For other extensions
+
+Every decision goes out on `pi.events`:
+
+```ts
+pi.events.on("pi-ask-permission:decided", (decided) => {
+	// { toolCallId, toolName, summary, action: "allow" | "block", by, reason?, note? }
+});
+```
+
+`by` is the step that decided (`always yes`, `workspace`, `mode`, `allow list`, `read-only bash`, `judge`), `you` for the dialog, or `no UI`. Answers from the dialog are also kept in the session as `pi-ask-permission:answer` entries.
+
+A tool can say what it touches, so the workspace and `accept edits` treat it right. Emit from `session_start`, when every extension has loaded:
+
+```ts
+pi.on("session_start", () => {
+	pi.events.emit("pi-ask-permission:tool", {
+		name: "apply_patch",
+		edits: true,
+		paths: (input) => input.files,
+	});
+});
+```
+
+A tool that says nothing has no paths and is not an edit. Built-in tools cannot be redescribed.
 
 ## Compatibility
 

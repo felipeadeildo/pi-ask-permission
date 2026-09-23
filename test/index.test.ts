@@ -30,8 +30,9 @@ test("loading the extension writes nothing until a session starts", async () => 
 		{
 			on: (name: string, handler: (event: unknown, ctx: ExtensionContext) => unknown) =>
 				handlers.set(name, handler),
+			events: { on: () => () => {}, emit: () => {} },
 		},
-		{ get: (target, key) => (key in target ? target[key as "on"] : () => {}) },
+		{ get: (target, key) => (key in target ? target[key as keyof typeof target] : () => {}) },
 	) as unknown as ExtensionAPI;
 
 	piAskPermission(pi);

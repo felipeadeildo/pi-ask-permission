@@ -18,7 +18,7 @@ async function decidedBy(
 ): Promise<string | undefined> {
 	const call = describeCall(toolName, input, CWD, state.config);
 	const decision = await decide(call, [...gateLayers(state), ...extra]);
-	return decision.by;
+	return "by" in decision ? decision.by : undefined;
 }
 
 function withOutside(outside: PermissionConfig["workspace"]["outside"]): PermissionConfig {

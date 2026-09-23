@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+import { listenForTools } from "#pi/api.ts";
 import { registerBashTimer } from "#pi/bash-timer.ts";
 import { registerCommands } from "#pi/commands.ts";
 import { registerEvents } from "#pi/events.ts";
@@ -14,5 +15,6 @@ export default function piAskPermission(pi: ExtensionAPI) {
 
 	const session = createSession();
 	registerEvents(pi, session);
+	listenForTools(pi, session.customTools);
 	registerCommands(pi, session);
 }

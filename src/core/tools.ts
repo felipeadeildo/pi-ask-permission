@@ -59,13 +59,21 @@ const BUILT_IN: Record<string, ToolAdapter> = {
 	mcp,
 };
 
-export function toolAdapter(toolName: string): ToolAdapter {
-	return (
-		BUILT_IN[toolName] ?? {
-			describe: (input) => ({ summary: summarizeInput(input), levels: [toolName] }),
-			paths: () => [],
-		}
-	);
+export type CustomTools = ReadonlyMap<string, Partial<ToolAdapter>>;
+
+export function toolAdapter(toolName: string, custom: CustomTools = new Map()): ToolAdapter {
+	const builtIn = BUILT_IN[toolName];
+	if (builtIn) return builtIn;
+
+	return {
+		describe: (input) => ({ summary: summarizeInput(input), levels: [toolName] }),
+		paths: () => [],
+		...custom.get(toolName),
+	};
+}
+
+export function isBuiltInTool(toolName: string): boolean {
+	return toolName in BUILT_IN;
 }
 
 export function asToolInput(input: unknown): ToolInput {

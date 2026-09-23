@@ -5,6 +5,7 @@ import { modeApproves, type PermissionMode } from "#core/mode.ts";
 import {
 	asToolInput,
 	type CallDescriptor,
+	type CustomTools,
 	shortenHome,
 	type ToolAdapter,
 	toolAdapter,
@@ -27,7 +28,7 @@ export type Verdict =
 	| { action: "block"; reason: string }
 	| { action: "ask"; reason?: string };
 
-export type Decision = Verdict & { by?: string };
+export type Decision = (Verdict & { by: string }) | { action: "ask" };
 
 export interface Layer {
 	name: string;
@@ -47,9 +48,10 @@ export function describeCall(
 	rawInput: unknown,
 	cwd: string,
 	config: PermissionConfig,
+	custom?: CustomTools,
 ): Call {
 	const input = asToolInput(rawInput);
-	const tool = toolAdapter(toolName);
+	const tool = toolAdapter(toolName, custom);
 	const call: Call = { toolName, input, tool, target: tool.describe(input), outside: false };
 	if (config.workspace.outside === "allow") return call;
 

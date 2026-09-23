@@ -28,6 +28,7 @@ function enabledJudge(): SessionState["config"] {
 
 function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask") {
 	const entries: Entry[] = [];
+	const decided: { channel: string; data: unknown }[] = [];
 	const handlers = new Map<string, Handler>();
 
 	const pi = {
@@ -37,6 +38,10 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 		},
 		appendEntry: (customType: string, data: unknown) => {
 			entries.push({ customType, data });
+		},
+		events: {
+			emit: (channel: string, data: unknown) => decided.push({ channel, data }),
+			on: () => () => {},
 		},
 	} as unknown as ExtensionAPI;
 
@@ -63,7 +68,8 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 	const toolCall = handlers.get("tool_call");
 	if (!toolCall) throw new Error("no tool_call handler");
 
-	return { entries, state, toolCall };
+	const cards = () => entries.filter((entry) => entry.customType === "pi-ask-permission:judge");
+	return { entries, cards, decided, state, toolCall };
 }
 
 /** `onDialog` runs when the permission dialog opens, before it is answered. */
@@ -98,32 +104,32 @@ function writeCall(id: string, path = "a.ts") {
 
 describe("judge cards in the transcript", () => {
 	test("the card is already there when the permission dialog opens", async () => {
-		const { entries, toolCall } = harness();
+		const { cards, toolCall } = harness();
 		let cardsOnDialog = -1;
 
 		await toolCall(
 			judgeCall("call-1", "git push origin main"),
 			fakeContext(() => {
-				cardsOnDialog = entries.length;
+				cardsOnDialog = cards().length;
 			}),
 		);
 
 		expect(cardsOnDialog).toBe(1);
-		expect(entries).toHaveLength(1);
-		expect(entries[0]?.customType).toBe("pi-ask-permission:judge");
-		expect(entries[0]?.data).toEqual([
+		expect(cards()).toHaveLength(1);
+		expect(cards()[0]?.customType).toBe("pi-ask-permission:judge");
+		expect(cards()[0]?.data).toEqual([
 			expect.objectContaining({ action: "ask", toolName: "bash" }),
 		]);
 	});
 
 	test("each decision is written as it is made, not batched to the turn end", async () => {
-		const { entries, toolCall } = harness();
+		const { cards, toolCall } = harness();
 
 		await toolCall(judgeCall("call-1", "git push origin main"), fakeContext());
-		expect(entries).toHaveLength(1);
+		expect(cards()).toHaveLength(1);
 
 		await toolCall(judgeCall("call-2", "git push --force origin main"), fakeContext());
-		expect(entries).toHaveLength(2);
+		expect(cards()).toHaveLength(2);
 	});
 });
 
@@ -203,7 +209,7 @@ describe("session modes", () => {
 
 describe("workspace scope", () => {
 	test("auto does not approve a call outside the workspace", async () => {
-		const { entries, toolCall } = harness("auto");
+		const { cards, toolCall } = harness("auto");
 		let opened = false;
 
 		await toolCall(
@@ -214,7 +220,7 @@ describe("workspace scope", () => {
 		);
 
 		expect(opened).toBe(true);
-		expect(entries).toHaveLength(0);
+		expect(cards()).toHaveLength(0);
 	});
 
 	test("accept edits does not approve a write outside the workspace", async () => {
@@ -274,6 +280,24 @@ describe("workspace scope", () => {
 			customType: "pi-ask-permission:session",
 			data: { kind: "always-yes", toolName: "bash", level: "rm -rf build" },
 		});
+	});
+
+	test("every decision is announced, and the dialog's answer is kept in the session", async () => {
+		const { entries, decided, toolCall } = harness("manual");
+
+		await toolCall(judgeCall("call-1", "git status"), fakeContext());
+		await toolCall(judgeCall("call-2", "rm -rf build"), fakeContext());
+
+		expect(decided.map((event) => event.data)).toEqual([
+			expect.objectContaining({ toolCallId: "call-1", action: "allow", by: "read-only bash" }),
+			expect.objectContaining({ toolCallId: "call-2", action: "allow", by: "you" }),
+		]);
+		expect(entries.filter((entry) => entry.customType === "pi-ask-permission:answer")).toEqual([
+			{
+				customType: "pi-ask-permission:answer",
+				data: expect.objectContaining({ toolCallId: "call-2" }),
+			},
+		]);
 	});
 
 	test("always yes still wins over the boundary", async () => {

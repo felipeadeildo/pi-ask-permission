@@ -2,12 +2,12 @@ import {
 	type ExtensionAPI,
 	type ExtensionContext,
 	isToolCallEventType,
+	type ToolCallEvent,
 } from "@earendil-works/pi-coding-agent";
 
 import { SCOPE_LABEL } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
 import { noUIMode } from "#core/config/patterns.ts";
-import type { PermissionConfig } from "#core/config/schema.ts";
 import {
 	type Call,
 	decide,
@@ -20,6 +20,7 @@ import { judgeGate } from "#core/judge/gate.ts";
 import { judgeVerdictText, remember, warnOnce } from "#core/judge/report.ts";
 import type { CallDescriptor } from "#core/tools.ts";
 import { NAME } from "#identity";
+import { announce, type Decided } from "#pi/api.ts";
 import { clearModeStatus, renderModeStatus } from "#pi/mode.ts";
 import { editFailure } from "#pi/preflight.ts";
 import { restoreSession } from "#pi/session-entries.ts";
@@ -60,47 +61,27 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
-		const { config } = state;
-		const call = describeCall(event.toolName, event.input, ctx.cwd, config);
-		const judge: Layer = { name: "judge", decide: (next) => runJudge(state, pi, ctx, next) };
-		const decision = await decide(call, [...gateLayers(state), judge]);
+		const call = describeCall(
+			event.toolName,
+			event.input,
+			ctx.cwd,
+			state.config,
+			state.customTools,
+		);
+		const outcome = await gate(pi, state, ctx, call, event);
 
-		if (decision.action === "allow") return undefined;
-		if (decision.action === "block") return { block: true, reason: decision.reason };
-
-		if (!ctx.hasUI) return noUIRefusal(config, call.toolName);
-
-		if (isToolCallEventType("edit", event)) {
-			const failure = await editFailure(ctx, event.input);
-			if (failure) return { block: true, reason: failure };
-		}
-
-		await state.typing.waitUntilQuiet(ctx.signal, (waiting) => {
-			ctx.ui.setStatus(NAME, waiting ? TYPING_STATUS : undefined);
+		announce(pi, {
+			toolCallId: event.toolCallId,
+			toolName: call.toolName,
+			summary: call.target.summary,
+			...outcome,
 		});
+		if (outcome.action === "block") return { block: true, reason: outcome.reason };
 
-		state.typing.pause();
-		const answer = await ask(ctx, call.toolName, call.target).finally(() => state.typing.resume());
-
-		if (answer.decision === "deny") {
-			return { block: true, reason: denyReason(answer.note) };
+		if (outcome.note) {
+			if (state.config.notes === "message") sendNote(pi, outcome.note, call.toolName);
+			else state.pendingNotes.set(event.toolCallId, outcome.note);
 		}
-
-		if (answer.remember) {
-			const scope = answer.scope ?? "session";
-			rememberAlwaysYes(pi, state, ctx, scope, call.toolName, answer.remember);
-
-			ctx.ui.notify(
-				`${NAME}: always yes for ${call.toolName} \u00b7 ${answer.remember} (${SCOPE_LABEL[scope]})`,
-				"info",
-			);
-		}
-
-		if (answer.note) {
-			if (config.notes === "message") sendNote(pi, answer.note, call.toolName);
-			else state.pendingNotes.set(event.toolCallId, answer.note);
-		}
-
 		return undefined;
 	});
 
@@ -111,6 +92,55 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		state.pendingNotes.delete(event.toolCallId);
 		return { content: [...event.content, { type: "text", text: noteBlock(note) }] };
 	});
+}
+
+type Outcome = Pick<Decided, "action" | "by" | "reason" | "note">;
+
+async function gate(
+	pi: ExtensionAPI,
+	state: SessionState,
+	ctx: ExtensionContext,
+	call: Call,
+	event: ToolCallEvent,
+): Promise<Outcome> {
+	const judge: Layer = { name: "judge", decide: (next) => runJudge(state, pi, ctx, next) };
+	const decision = await decide(call, [...gateLayers(state), judge]);
+
+	if (decision.action === "allow") return { action: "allow", by: decision.by };
+	if (decision.action === "block")
+		return { action: "block", by: decision.by, reason: decision.reason };
+
+	if (!ctx.hasUI) {
+		if (noUIMode(state.config, call.toolName) === "allow") return { action: "allow", by: "no UI" };
+		return { action: "block", by: "no UI", reason: `${NAME}: no UI to approve "${call.toolName}"` };
+	}
+
+	if (isToolCallEventType("edit", event)) {
+		const failure = await editFailure(ctx, event.input);
+		if (failure) return { action: "block", by: "edit check", reason: failure };
+	}
+
+	await state.typing.waitUntilQuiet(ctx.signal, (waiting) => {
+		ctx.ui.setStatus(NAME, waiting ? TYPING_STATUS : undefined);
+	});
+
+	state.typing.pause();
+	const answer = await ask(ctx, call.toolName, call.target).finally(() => state.typing.resume());
+
+	if (answer.decision === "deny") {
+		return { action: "block", by: "you", reason: denyReason(answer.note), note: answer.note };
+	}
+
+	if (answer.remember) {
+		const scope = answer.scope ?? "session";
+		rememberAlwaysYes(pi, state, ctx, scope, call.toolName, answer.remember);
+		ctx.ui.notify(
+			`${NAME}: always yes for ${call.toolName} \u00b7 ${answer.remember} (${SCOPE_LABEL[scope]})`,
+			"info",
+		);
+	}
+
+	return { action: "allow", by: "you", note: answer.note };
 }
 
 async function runJudge(
@@ -187,14 +217,6 @@ async function ask(
 	}
 
 	return askViaSelector(ctx, toolName, target);
-}
-
-function noUIRefusal(
-	config: PermissionConfig,
-	toolName: string,
-): { block: true; reason: string } | undefined {
-	if (noUIMode(config, toolName) === "allow") return undefined;
-	return { block: true, reason: `${NAME}: no UI available to approve "${toolName}"` };
 }
 
 function sendNote(pi: ExtensionAPI, note: string, toolName: string): void {
