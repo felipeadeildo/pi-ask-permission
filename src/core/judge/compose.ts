@@ -7,8 +7,8 @@ export const RISK_WEIGHTS = {
 	sensitive: 0.4,
 } as const;
 
-export function neverMatches(config: JudgeConfig, values: string[]): boolean {
-	return config.never.some((pattern) => values.some((value) => matchesPattern(pattern, value)));
+export function alwaysAskMatches(config: JudgeConfig, values: string[]): boolean {
+	return config.alwaysAsk.some((pattern) => values.some((value) => matchesPattern(pattern, value)));
 }
 
 // The old 0.45 to 0.30 ratio, once the workspace term moves out.
@@ -38,10 +38,10 @@ export function composeVerdict(config: JudgeConfig, answers: JudgeAnswers): Comp
 		return { decision: "uncertain", reason: "the judge asked for a person to decide" };
 
 	if (verdict.choice === "deny") {
-		if (!config.autoDeny)
+		if (!config.canDeny)
 			return {
 				decision: "uncertain",
-				reason: `the judge denied this call, but auto-deny is off (${percent(verdict.confidence)} confident)`,
+				reason: `the judge denied this call, but judge.canDeny is off (${percent(verdict.confidence)} confident)`,
 			};
 		if (verdict.confidence >= config.thresholds.deny)
 			return {

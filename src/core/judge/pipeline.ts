@@ -1,7 +1,7 @@
 import {
 	composeVerdict,
 	judgeRisk,
-	neverMatches,
+	alwaysAskMatches,
 	type ComposedVerdict,
 } from "#core/judge/compose.ts";
 import type { JudgeConfig } from "#core/judge/config.ts";
@@ -26,8 +26,8 @@ export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOut
 	const { config, backend, input } = options;
 
 	const values = [input.target.summary, ...input.target.levels];
-	if (neverMatches(config, values)) {
-		const reason = "matches a never-auto-approve rule";
+	if (alwaysAskMatches(config, values)) {
+		const reason = "matches judge.alwaysAsk";
 		return { action: "ask", reason, record: blankRecord(config, input, reason) };
 	}
 
@@ -40,7 +40,7 @@ export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOut
 		if (options.signal?.aborted) throw error;
 
 		const reason = `the judge could not decide: ${describe(error)}`;
-		const wouldAct: JudgeAction = config.onError === "deny" ? "deny" : "ask";
+		const wouldAct: JudgeAction = config.whenItFails === "deny" ? "deny" : "ask";
 		const { action, dryRun } = resolveAction(config, wouldAct);
 
 		const record = blankRecord(config, input, reason);
@@ -54,7 +54,7 @@ export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOut
 	const risk = composed.risk ?? judgeRisk(assessment.answers);
 
 	const wouldAct: JudgeAction =
-		composed.decision === "uncertain" ? config.onUncertain : composed.decision;
+		composed.decision === "uncertain" ? config.whenUnsure : composed.decision;
 	const { action, dryRun } = resolveAction(config, wouldAct);
 	const reason = describeOutcome(composed.reason, composed.decision, config);
 
@@ -93,7 +93,7 @@ function describeOutcome(
 
 function blankRecord(config: JudgeConfig, input: JudgeInput, reason: string): JudgeRecord {
 	return {
-		backend: config.backend,
+		backend: config.provider,
 		model: config.model,
 		answers: {},
 		elapsedMs: 0,

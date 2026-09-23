@@ -11,21 +11,20 @@ export interface JudgeThresholds {
 
 export interface JudgeConfig {
 	enabled: boolean;
-	backend: JudgeBackendId;
-	/** `jev` alias or pinned id, or `provider/modelId` for the `pi` backend. */
+	provider: JudgeBackendId;
+	/** A Jev alias or pinned id, or `provider/modelId` for a pi model. */
 	model: string;
 	/** Tool patterns the judge may decide. Empty means it never runs. */
 	tools: string[];
-	never: string[];
+	alwaysAsk: string[];
 	thresholds: JudgeThresholds;
 	riskCeiling: number;
-	onUncertain: JudgeFallback;
-	autoDeny: boolean;
-	onError: JudgeFallback;
-	/** Also judge print, JSON, and subagent runs. */
-	headless: boolean;
+	whenUnsure: JudgeFallback;
+	canDeny: boolean;
+	whenItFails: JudgeFallback;
+	noUI: boolean;
 	dryRun: boolean;
-	grant: boolean;
+	rememberApprovals: boolean;
 	timeoutMs: number;
 	cache: boolean;
 	/** Operator rulebook for what may run. */
@@ -34,18 +33,18 @@ export interface JudgeConfig {
 
 export const DEFAULT_JUDGE: JudgeConfig = {
 	enabled: false,
-	backend: "jev",
+	provider: "jev",
 	model: "jev-latest",
 	tools: ["bash"],
-	never: [],
+	alwaysAsk: [],
 	thresholds: { allow: 0.85, deny: 0.8 },
 	riskCeiling: 0.45,
-	onUncertain: "ask",
-	autoDeny: true,
-	onError: "ask",
-	headless: false,
+	whenUnsure: "ask",
+	canDeny: true,
+	whenItFails: "ask",
+	noUI: false,
 	dryRun: false,
-	grant: false,
+	rememberApprovals: false,
 	timeoutMs: 5000,
 	cache: true,
 	policy: DEFAULT_POLICY,
@@ -56,6 +55,6 @@ export function defaultJudge(): JudgeConfig {
 		...DEFAULT_JUDGE,
 		thresholds: { ...DEFAULT_JUDGE.thresholds },
 		tools: [...DEFAULT_JUDGE.tools],
-		never: [...DEFAULT_JUDGE.never],
+		alwaysAsk: [...DEFAULT_JUDGE.alwaysAsk],
 	};
 }

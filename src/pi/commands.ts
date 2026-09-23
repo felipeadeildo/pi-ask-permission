@@ -57,7 +57,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 			const source = auth.configured
 				? `key from ${auth.label ?? auth.source}`
 				: "no key configured";
-			const suffix = state.config.judge.backend === "jev" ? ` (${source})` : "";
+			const suffix = state.config.judge.provider === "jev" ? ` (${source})` : "";
 			ctx.ui.notify(`${NAME}: judge test failed: ${probe.detail}${suffix}`, "error");
 			return;
 		}
@@ -95,7 +95,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 				resetJudgeHealth(state);
 				notifyJudgePolicyWarning(state.config, ctx);
 			}
-			ctx.ui.notify(`${NAME}: AI approvals ${argument}`, "info");
+			ctx.ui.notify(`${NAME}: judge ${argument}`, "info");
 			return;
 		}
 

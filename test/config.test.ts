@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { decodeConfig } from "#core/config/decode.ts";
-import { headlessMode, isAllowed, isJudged, matchesPattern } from "#core/config/patterns.ts";
+import { noUIMode, isAllowed, isJudged, matchesPattern } from "#core/config/patterns.ts";
 import { DEFAULT_CONFIG, type PermissionConfig } from "#core/config/schema.ts";
 import { configPath, loadConfig, saveConfig } from "#core/config/store.ts";
 import { DEFAULT_JUDGE } from "#core/judge/config.ts";
@@ -42,17 +42,17 @@ describe("decodeConfig", () => {
 		expect(warnings).toHaveLength(1);
 	});
 
-	test("keeps a valid headless map and drops invalid modes", () => {
+	test("keeps a valid noUI map and drops invalid modes", () => {
 		const warnings: string[] = [];
-		expect(decodeConfig({ headless: { bash: "deny", bad: "nope" } }, warnings).headless).toEqual({
+		expect(decodeConfig({ noUI: { bash: "deny", bad: "nope" } }, warnings).noUI).toEqual({
 			bash: "deny",
 		});
-		expect(warnings).toEqual(['headless.bad: expected "allow" or "deny"']);
+		expect(warnings).toEqual(['noUI.bad: expected "allow" or "deny"']);
 	});
 
-	test("rejects a bad followup wire", () => {
+	test("rejects a bad notes value", () => {
 		const warnings: string[] = [];
-		expect(decodeConfig({ followup: "carrier-pigeon" }, warnings).followup).toBe("result");
+		expect(decodeConfig({ notes: "carrier-pigeon" }, warnings).notes).toBe("result");
 		expect(warnings).toHaveLength(1);
 	});
 
@@ -71,14 +71,14 @@ describe("decodeConfig", () => {
 	test("drops the removed yolo key and warns", () => {
 		const warnings: string[] = [];
 		expect(decodeConfig({ yolo: true }, warnings).mode).toBe("manual");
-		expect(warnings).toContain("yolo: removed, use mode and pick it per session; delete this key");
+		expect(warnings).toContain("yolo is gone, the mode is picked per session");
 	});
 
 	test("moves a persisted yolo mode to auto and warns", () => {
 		const warnings: string[] = [];
 		expect(decodeConfig({ mode: "yolo" }, warnings).mode).toBe("auto");
 		expect(warnings).toContain(
-			'mode "yolo" is gone, using "auto"; set workspace.outside to "allow" for the old reach',
+			'mode "yolo" is now "auto", with workspace.outside "allow" for the same reach',
 		);
 	});
 
@@ -134,7 +134,7 @@ describe("decodeConfig", () => {
 
 	test("an invalid higher-precedence value never widens access", () => {
 		const warnings: string[] = [];
-		const config = decodeConfig({ headless: 42, allow: null, mode: "sometimes" }, warnings);
+		const config = decodeConfig({ noUI: 42, allow: null, mode: "sometimes" }, warnings);
 		expect(config).toEqual(DEFAULT_CONFIG);
 		expect(warnings).toHaveLength(3);
 	});
@@ -170,18 +170,18 @@ describe("decodeJudge", () => {
 		const judge = decodeJudge(
 			{
 				enabled: true,
-				backend: "pi",
+				provider: "pi",
 				model: "anthropic/claude",
 				tools: ["bash", "write"],
-				never: ["rm -rf*"],
+				alwaysAsk: ["rm -rf*"],
 				thresholds: { allow: 0.9, deny: 0.7 },
 				riskCeiling: 0.3,
-				onUncertain: "deny",
-				autoDeny: false,
-				onError: "deny",
-				headless: true,
+				whenUnsure: "deny",
+				canDeny: false,
+				whenItFails: "deny",
+				noUI: true,
 				dryRun: true,
-				grant: true,
+				rememberApprovals: true,
 				cache: false,
 				timeoutMs: 500,
 				policy: "be careful",
@@ -192,18 +192,18 @@ describe("decodeJudge", () => {
 		expect(warnings).toEqual([]);
 		expect(judge).toEqual({
 			enabled: true,
-			backend: "pi",
+			provider: "pi",
 			model: "anthropic/claude",
 			tools: ["bash", "write"],
-			never: ["rm -rf*"],
+			alwaysAsk: ["rm -rf*"],
 			thresholds: { allow: 0.9, deny: 0.7 },
 			riskCeiling: 0.3,
-			onUncertain: "deny",
-			autoDeny: false,
-			onError: "deny",
-			headless: true,
+			whenUnsure: "deny",
+			canDeny: false,
+			whenItFails: "deny",
+			noUI: true,
 			dryRun: true,
-			grant: true,
+			rememberApprovals: true,
 			cache: false,
 			timeoutMs: 500,
 			policy: "be careful",
@@ -215,24 +215,24 @@ describe("decodeJudge", () => {
 		const judge = decodeJudge(
 			{
 				enabled: "yes",
-				backend: "nope",
+				provider: "nope",
 				thresholds: { allow: 2 },
 				tools: "bash",
-				never: ["ok", 3, ""],
+				alwaysAsk: ["ok", 3, ""],
 			},
 			warnings,
 		);
 
 		expect(judge.enabled).toBe(false);
-		expect(judge.backend).toBe("jev");
+		expect(judge.provider).toBe("jev");
 		expect(judge.thresholds.allow).toBe(DEFAULT_JUDGE.thresholds.allow);
 		expect(judge.tools).toEqual([]);
-		expect(judge.never).toEqual(["ok"]);
+		expect(judge.alwaysAsk).toEqual(["ok"]);
 		expect(warnings).toContain("judge.enabled: expected a boolean");
-		expect(warnings).toContain('judge.backend: expected "jev" or "pi"');
+		expect(warnings).toContain('judge.provider: expected "jev" or "pi"');
 		expect(warnings).toContain("judge.thresholds.allow: expected a number from 0 to 1");
 		expect(warnings).toContain("judge.tools: expected an array of tool name patterns");
-		expect(warnings).toContain("judge.never: ignored entries that are not non-empty strings");
+		expect(warnings).toContain("judge.alwaysAsk: ignored entries that are not non-empty strings");
 	});
 
 	test("decodeConfig carries the judge block", () => {
@@ -249,31 +249,31 @@ describe("decodeJudge", () => {
 	});
 });
 
-describe("headlessMode", () => {
+describe("noUIMode", () => {
 	test("a string applies to every tool", () => {
-		expect(headlessMode({ ...DEFAULT_CONFIG, headless: "allow" }, "bash")).toBe("allow");
+		expect(noUIMode({ ...DEFAULT_CONFIG, noUI: "allow" }, "bash")).toBe("allow");
 	});
 
 	test("defaults to deny when nothing matches", () => {
-		expect(headlessMode({ ...DEFAULT_CONFIG, headless: { bash: "allow" } }, "write")).toBe("deny");
+		expect(noUIMode({ ...DEFAULT_CONFIG, noUI: { bash: "allow" } }, "write")).toBe("deny");
 	});
 
 	test("an exact tool beats a wildcard regardless of file order", () => {
 		const config: PermissionConfig = {
 			...DEFAULT_CONFIG,
-			headless: { "*": "allow", bash: "deny" },
+			noUI: { "*": "allow", bash: "deny" },
 		};
-		expect(headlessMode(config, "bash")).toBe("deny");
-		expect(headlessMode(config, "write")).toBe("allow");
+		expect(noUIMode(config, "bash")).toBe("deny");
+		expect(noUIMode(config, "write")).toBe("allow");
 	});
 
 	test("a wildcard beats * regardless of file order", () => {
 		const config: PermissionConfig = {
 			...DEFAULT_CONFIG,
-			headless: { "mcp_*": "allow", "*": "deny" },
+			noUI: { "mcp_*": "allow", "*": "deny" },
 		};
-		expect(headlessMode(config, "mcp_github")).toBe("allow");
-		expect(headlessMode(config, "bash")).toBe("deny");
+		expect(noUIMode(config, "mcp_github")).toBe("allow");
+		expect(noUIMode(config, "bash")).toBe("deny");
 	});
 });
 
@@ -324,9 +324,32 @@ describe("config file", () => {
 	});
 
 	test("saveConfig round-trips", () => {
-		const config = { ...DEFAULT_CONFIG, followup: "message" as const, allow: ["bash"] };
+		const config = { ...DEFAULT_CONFIG, notes: "message" as const, allow: ["bash"] };
 		expect(saveConfig(config)).toBeUndefined();
 		expect(loadConfig().config).toEqual(config);
+	});
+
+	test("a file from before 3.0 is read with the new names and rewritten once", () => {
+		saveConfig(DEFAULT_CONFIG);
+		writeFileSync(
+			configPath(),
+			JSON.stringify({ followup: "message", judge: { never: ["sudo*"], autoDeny: false } }),
+		);
+
+		const loaded = loadConfig();
+		expect(loaded.config.notes).toBe("message");
+		expect(loaded.config.judge.alwaysAsk).toEqual(["sudo*"]);
+		expect(loaded.config.judge.canDeny).toBe(false);
+		expect(loaded.warnings).toEqual([
+			"followup is now notes",
+			"judge.autoDeny is now judge.canDeny",
+			"judge.never is now judge.alwaysAsk",
+		]);
+
+		const rewritten = JSON.parse(readFileSync(configPath(), "utf8"));
+		expect(rewritten.followup).toBeUndefined();
+		expect(rewritten.notes).toBe("message");
+		expect(loadConfig().warnings).toEqual([]);
 	});
 
 	test("a loaded config does not alias the exported defaults", () => {

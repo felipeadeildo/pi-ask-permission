@@ -51,7 +51,6 @@ export interface JudgeRecord extends JudgeAssessment {
 	action: JudgeAction;
 	reason: string;
 	error?: string;
-	headless?: boolean;
 
 	dryRun?: boolean;
 }

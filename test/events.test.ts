@@ -18,12 +18,12 @@ interface Entry {
 type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
 
 /**
- * A never-auto-approve rule makes the judge answer without a backend, so these
+ * An alwaysAsk rule makes the judge answer without a backend, so these
  * tests exercise the real `runJudge` path with no network or API key.
  */
 function enabledJudge(): SessionState["config"] {
 	const config = defaultConfig();
-	return { ...config, judge: { ...config.judge, enabled: true, never: ["*"] } };
+	return { ...config, judge: { ...config.judge, enabled: true, alwaysAsk: ["*"] } };
 }
 
 function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask") {

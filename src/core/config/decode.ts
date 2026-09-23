@@ -3,7 +3,7 @@ import {
 	DEFAULT_TYPING,
 	DEFAULT_WORKSPACE,
 	defaultConfig,
-	type HeadlessMode,
+	type NoUIMode,
 	type PermissionConfig,
 	type TypingConfig,
 	type WorkspaceConfig,
@@ -30,15 +30,15 @@ import {
 	withDefaultOf,
 } from "#util/decode.ts";
 
-type HeadlessConfig = HeadlessMode | Record<string, HeadlessMode>;
+type NoUIConfig = NoUIMode | Record<string, NoUIMode>;
 
-const headless: Decoder<HeadlessConfig> = {
+const noUI: Decoder<NoUIConfig> = {
 	decode(input, path) {
 		if (input === "allow" || input === "deny") return pass(input);
 		if (!isObject(input)) return fail(problem(path, 'expected "allow", "deny", or a per-tool map'));
 
 		const problems: Problem[] = [];
-		const value: Record<string, HeadlessMode> = {};
+		const value: Record<string, NoUIMode> = {};
 		for (const [tool, entry] of Object.entries(input)) {
 			if (entry === "allow" || entry === "deny") value[tool] = entry;
 			else problems.push(problem(fieldPath(path, tool), 'expected "allow" or "deny"'));
@@ -59,8 +59,8 @@ const workspace: Decoder<WorkspaceConfig> = object({
 
 const config: Decoder<PermissionConfig> = object({
 	allow: withDefaultOf(stringList("tool names"), () => [...DEFAULT_CONFIG.allow]),
-	headless: withDefaultOf(headless, () => DEFAULT_CONFIG.headless),
-	followup: withDefault(literal("result", "message"), DEFAULT_CONFIG.followup),
+	noUI: withDefaultOf(noUI, () => DEFAULT_CONFIG.noUI),
+	notes: withDefault(literal("result", "message"), DEFAULT_CONFIG.notes),
 	mode: withDefault(literal("manual", "accept-edits", "auto"), DEFAULT_MODE),
 	readOnlyBash: withDefault(boolean, DEFAULT_CONFIG.readOnlyBash),
 	workspace: withDefaultOf(workspace, () => ({
@@ -78,22 +78,48 @@ export function decodeConfig(input: unknown, warnings: string[] = []): Permissio
 	return result.ok ? result.value : defaultConfig();
 }
 
-// `yolo` was a persisted boolean and then a mode. `auto` plus `workspace.outside:
-// "allow"` is what the mode meant.
+const RENAMED: [section: "judge" | undefined, from: string, to: string][] = [
+	[undefined, "followup", "notes"],
+	[undefined, "headless", "noUI"],
+	["judge", "backend", "provider"],
+	["judge", "autoDeny", "canDeny"],
+	["judge", "onUncertain", "whenUnsure"],
+	["judge", "onError", "whenItFails"],
+	["judge", "never", "alwaysAsk"],
+	["judge", "headless", "noUI"],
+	["judge", "grant", "rememberApprovals"],
+];
+
+/** Whether the file still uses a key from before 3.0, so saving it would rewrite it. */
+export function isOutdated(input: unknown): boolean {
+	const warnings: string[] = [];
+	migrate(input, warnings);
+	return warnings.length > 0;
+}
+
 function migrate(input: unknown, warnings: string[]): unknown {
 	if (!isObject(input)) return input;
-	if (!("mode" in input) && !("yolo" in input)) return input;
 
-	const next = { ...input };
+	const next: Record<string, unknown> = { ...input };
+	if (isObject(next.judge)) next.judge = { ...next.judge };
+
+	for (const [section, from, to] of RENAMED) {
+		const target = section === undefined ? next : next[section];
+		if (!isObject(target) || !(from in target)) continue;
+
+		if (!(to in target)) target[to] = target[from];
+		delete target[from];
+		const prefix = section === undefined ? "" : `${section}.`;
+		warnings.push(`${prefix}${from} is now ${prefix}${to}`);
+	}
+
 	if (next.mode === "yolo") {
 		next.mode = "auto";
-		warnings.push(
-			'mode "yolo" is gone, using "auto"; set workspace.outside to "allow" for the old reach',
-		);
+		warnings.push('mode "yolo" is now "auto", with workspace.outside "allow" for the same reach');
 	}
 	if ("yolo" in next) {
 		delete next.yolo;
-		warnings.push("yolo: removed, use mode and pick it per session; delete this key");
+		warnings.push("yolo is gone, the mode is picked per session");
 	}
 	return next;
 }

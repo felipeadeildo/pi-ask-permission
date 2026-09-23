@@ -1,4 +1,4 @@
-import type { HeadlessMode, PermissionConfig } from "#core/config/schema.ts";
+import type { NoUIMode, PermissionConfig } from "#core/config/schema.ts";
 
 const patternCache = new Map<string, RegExp>();
 
@@ -27,12 +27,12 @@ export function isJudged(config: PermissionConfig, toolName: string): boolean {
 	);
 }
 
-export function headlessMode(config: PermissionConfig, toolName: string): HeadlessMode {
-	if (typeof config.headless === "string") return config.headless;
+export function noUIMode(config: PermissionConfig, toolName: string): NoUIMode {
+	if (typeof config.noUI === "string") return config.noUI;
 
 	let bestScore = 0;
-	let best: HeadlessMode | undefined;
-	for (const [pattern, value] of Object.entries(config.headless)) {
+	let best: NoUIMode | undefined;
+	for (const [pattern, value] of Object.entries(config.noUI)) {
 		if (!matchesPattern(pattern, toolName)) continue;
 
 		const score = specificity(pattern);

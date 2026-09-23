@@ -6,7 +6,7 @@ import {
 
 import { SCOPE_LABEL } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
-import { headlessMode } from "#core/config/patterns.ts";
+import { noUIMode } from "#core/config/patterns.ts";
 import type { PermissionConfig } from "#core/config/schema.ts";
 import {
 	type Call,
@@ -67,7 +67,7 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		if (decision.action === "allow") return undefined;
 		if (decision.action === "block") return { block: true, reason: decision.reason };
 
-		if (!ctx.hasUI) return headlessRefusal(config, call.toolName);
+		if (!ctx.hasUI) return noUIRefusal(config, call.toolName);
 
 		if (isToolCallEventType("edit", event)) {
 			const failure = await editFailure(ctx, event.input);
@@ -96,7 +96,7 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		}
 
 		if (answer.note) {
-			if (config.followup === "message") sendNote(pi, answer.note, call.toolName);
+			if (config.notes === "message") sendNote(pi, answer.note, call.toolName);
 			else state.pendingNotes.set(event.toolCallId, answer.note);
 		}
 
@@ -147,7 +147,7 @@ async function runJudge(
 	}
 
 	if (outcome.action === "allow") {
-		if (state.config.judge.grant) {
+		if (state.config.judge.rememberApprovals) {
 			const level = call.target.levels.at(-1);
 			if (level !== undefined) rememberAlwaysYes(pi, state, ctx, "session", call.toolName, level);
 		}
@@ -188,11 +188,11 @@ async function ask(
 	return askViaSelector(ctx, toolName, target);
 }
 
-function headlessRefusal(
+function noUIRefusal(
 	config: PermissionConfig,
 	toolName: string,
 ): { block: true; reason: string } | undefined {
-	if (headlessMode(config, toolName) === "allow") return undefined;
+	if (noUIMode(config, toolName) === "allow") return undefined;
 	return { block: true, reason: `${NAME}: no UI available to approve "${toolName}"` };
 }
 

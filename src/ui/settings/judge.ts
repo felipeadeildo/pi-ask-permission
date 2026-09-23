@@ -10,8 +10,8 @@ import {
 } from "#core/judge/policy.ts";
 import { PickerList } from "#ui/picker.ts";
 
-const BACKEND_LABEL: Record<JudgeBackendId, string> = {
-	jev: "Jev (TypeSafe)",
+const PROVIDER_LABEL: Record<JudgeBackendId, string> = {
+	jev: "Jev",
 	pi: "A pi model",
 };
 
@@ -40,9 +40,7 @@ export interface JudgeSettingsHooks {
 
 	piModels: string[];
 	save: () => void;
-
 	editPolicy: () => void;
-
 	editModel: () => void;
 }
 
@@ -55,88 +53,63 @@ type SubmenuDone = (selectedValue?: string, options?: { navigateTo?: string }) =
 
 export function buildJudgeSettings(hooks: JudgeSettingsHooks): JudgeSettings {
 	const values = judgeValues(hooks.config);
+	const item = (id: JudgeSettingId, label: string, description: string): SettingItem => ({
+		id,
+		label,
+		currentValue: values[id],
+		description,
+	});
+	const choice = (id: JudgeSettingId, label: string, choices: string[], description: string) => ({
+		...item(id, label, description),
+		values: choices,
+	});
+	const onOff = (id: JudgeSettingId, label: string, description: string) =>
+		choice(id, label, ["off", "on"], description);
+	const fallbacks = Object.values(FALLBACK_LABEL);
 
 	return {
 		items: [
+			choice(
+				"judge.provider",
+				"Provider",
+				Object.values(PROVIDER_LABEL),
+				"Jev answers fast, with a confidence. A pi model uses one you already set up.",
+			),
 			{
-				id: "judge.backend",
-				label: "Judge",
-				currentValue: values["judge.backend"],
-				values: [BACKEND_LABEL.jev, BACKEND_LABEL.pi],
-				description:
-					"Jev is a fast decision model that returns confidence. A pi model reuses any model you already configured.",
-			},
-			{
-				id: "judge.model",
-				label: "Model",
-				currentValue: values["judge.model"],
-				description:
-					hooks.config.backend === "jev"
-						? "A Jev alias, or a pinned version if you tuned the thresholds."
-						: "Any configured model. The judge asks it for strict JSON.",
+				...item(
+					"judge.model",
+					"Model",
+					hooks.config.provider === "jev"
+						? "A Jev alias, or a pinned version."
+						: "The judge asks it for strict JSON.",
+				),
 				submenu: (_current, done) => modelPicker(hooks, done),
 			},
+			onOff("judge.canDeny", "Can deny", "A confident no blocks the call. Off, it comes to you."),
+			choice("judge.whenUnsure", "When unsure", fallbacks, "When the judge is not confident."),
+			choice(
+				"judge.whenItFails",
+				"When it fails",
+				fallbacks,
+				"On a timeout, an error, or a missing key.",
+			),
+			choice(
+				"judge.tools",
+				"Tools",
+				TOOL_PRESETS.map((preset) => preset.label),
+				"The judge decides these. The rest come to you.",
+			),
 			{
-				id: "judge.authority",
-				label: "When confident",
-				currentValue: values["judge.authority"],
-				values: ["Approve or deny", "Approve only"],
-				description:
-					"Whether a confident judge may also block a call, or only wave it through. Denials never auto-run without this.",
-			},
-			{
-				id: "judge.onUncertain",
-				label: "When unsure",
-				currentValue: values["judge.onUncertain"],
-				values: ["Ask me", "Allow", "Deny"],
-				description: "What happens when the judge is not confident enough to decide.",
-			},
-			{
-				id: "judge.onError",
-				label: "When it can't answer",
-				currentValue: values["judge.onError"],
-				values: ["Ask me", "Allow", "Deny"],
-				description:
-					"What happens if the judge times out, errors, or has no API key. Asking you is the safe default.",
-			},
-			{
-				id: "judge.tools",
-				label: "Tools it may judge",
-				currentValue: values["judge.tools"],
-				values: TOOL_PRESETS.map((preset) => preset.label),
-				description:
-					"Which tools the judge may decide. Everything else always comes to you. Hand-edited patterns in config.json show as Custom.",
-			},
-			{
-				id: "judge.policy",
-				label: "Policy",
-				currentValue: values["judge.policy"],
-				description: policyDescription(hooks.config.policy),
+				...item("judge.policy", "Policy", policyDescription(hooks.config.policy)),
 				submenu: (_current, done) => policyPicker(hooks, done),
 			},
-			{
-				id: "judge.dryRun",
-				label: "Dry run",
-				currentValue: values["judge.dryRun"],
-				values: ["off", "on"],
-				description:
-					"Ask the judge and show its verdict, but still ask you. Use this to build trust before enabling.",
-			},
-			{
-				id: "judge.headless",
-				label: "Judge with no UI",
-				currentValue: values["judge.headless"],
-				values: ["off", "on"],
-				description:
-					"Also let the judge decide in print, JSON, and subagent runs, where nobody can be asked.",
-			},
-			{
-				id: "judge.grant",
-				label: "Remember approvals",
-				currentValue: values["judge.grant"],
-				values: ["off", "on"],
-				description: "A judge approval becomes always yes for this session.",
-			},
+			onOff("judge.dryRun", "Dry run", "Show the verdict, and still ask you."),
+			onOff("judge.noUI", "Judge with no UI", "Also judge print, JSON, and subagent runs."),
+			onOff(
+				"judge.rememberApprovals",
+				"Remember approvals",
+				"A judge approval becomes always yes for this session.",
+			),
 		],
 		onChange: (id, value) => {
 			apply(hooks, id, value);
@@ -146,42 +119,29 @@ export function buildJudgeSettings(hooks: JudgeSettingsHooks): JudgeSettings {
 }
 
 export type JudgeSettingId =
-	| "judge.backend"
+	| "judge.provider"
 	| "judge.model"
-	| "judge.authority"
-	| "judge.onUncertain"
-	| "judge.onError"
+	| "judge.canDeny"
+	| "judge.whenUnsure"
+	| "judge.whenItFails"
 	| "judge.tools"
 	| "judge.policy"
 	| "judge.dryRun"
-	| "judge.headless"
-	| "judge.grant";
-
-export const JUDGE_SETTING_IDS: JudgeSettingId[] = [
-	"judge.backend",
-	"judge.model",
-	"judge.authority",
-	"judge.onUncertain",
-	"judge.onError",
-	"judge.tools",
-	"judge.policy",
-	"judge.dryRun",
-	"judge.headless",
-	"judge.grant",
-];
+	| "judge.noUI"
+	| "judge.rememberApprovals";
 
 export function judgeValues(config: JudgeConfig): Record<JudgeSettingId, string> {
 	return {
-		"judge.backend": BACKEND_LABEL[config.backend],
+		"judge.provider": PROVIDER_LABEL[config.provider],
 		"judge.model": config.model || "(none)",
-		"judge.authority": config.autoDeny ? "Approve or deny" : "Approve only",
-		"judge.onUncertain": FALLBACK_LABEL[config.onUncertain],
-		"judge.onError": FALLBACK_LABEL[config.onError],
+		"judge.canDeny": toggle(config.canDeny),
+		"judge.whenUnsure": FALLBACK_LABEL[config.whenUnsure],
+		"judge.whenItFails": FALLBACK_LABEL[config.whenItFails],
 		"judge.tools": toolsLabel(config.tools),
 		"judge.policy": policyLabel(config.policy),
 		"judge.dryRun": toggle(config.dryRun),
-		"judge.headless": toggle(config.headless),
-		"judge.grant": toggle(config.grant),
+		"judge.noUI": toggle(config.noUI),
+		"judge.rememberApprovals": toggle(config.rememberApprovals),
 	};
 }
 
@@ -189,21 +149,21 @@ function apply(hooks: JudgeSettingsHooks, id: string, value: string): void {
 	const judge = hooks.config;
 
 	switch (id) {
-		case "judge.backend":
-			judge.backend = value === BACKEND_LABEL.pi ? "pi" : "jev";
-			judge.model = defaultModelFor(judge.backend, hooks.piModels, judge.model);
+		case "judge.provider":
+			judge.provider = value === PROVIDER_LABEL.pi ? "pi" : "jev";
+			judge.model = defaultModelFor(judge.provider, hooks.piModels, judge.model);
 			return;
 		case "judge.model":
 			judge.model = value;
 			return;
-		case "judge.authority":
-			judge.autoDeny = value === "Approve or deny";
+		case "judge.canDeny":
+			judge.canDeny = value === "on";
 			return;
-		case "judge.onUncertain":
-			judge.onUncertain = fallbackFromLabel(value);
+		case "judge.whenUnsure":
+			judge.whenUnsure = fallbackFromLabel(value);
 			return;
-		case "judge.onError":
-			judge.onError = fallbackFromLabel(value);
+		case "judge.whenItFails":
+			judge.whenItFails = fallbackFromLabel(value);
 			return;
 		case "judge.tools":
 			judge.tools = toolsFromLabel(value) ?? judge.tools;
@@ -216,24 +176,24 @@ function apply(hooks: JudgeSettingsHooks, id: string, value: string): void {
 		case "judge.dryRun":
 			judge.dryRun = value === "on";
 			return;
-		case "judge.headless":
-			judge.headless = value === "on";
+		case "judge.noUI":
+			judge.noUI = value === "on";
 			return;
-		case "judge.grant":
-			judge.grant = value === "on";
+		case "judge.rememberApprovals":
+			judge.rememberApprovals = value === "on";
 			return;
 	}
 }
 
-function defaultModelFor(backend: JudgeBackendId, piModels: string[], current: string): string {
-	if (backend === "jev") return JEV_MODELS.includes(current) ? current : "jev-latest";
+function defaultModelFor(provider: JudgeBackendId, piModels: string[], current: string): string {
+	if (provider === "jev") return JEV_MODELS.includes(current) ? current : "jev-latest";
 	if (piModels.includes(current)) return current;
 	return piModels[0] ?? "";
 }
 
 function modelPicker(hooks: JudgeSettingsHooks, done: SubmenuDone): PickerList {
 	const items =
-		hooks.config.backend === "jev"
+		hooks.config.provider === "jev"
 			? [
 					...JEV_MODELS.map((model) => ({
 						id: model,
@@ -254,7 +214,7 @@ function modelPicker(hooks: JudgeSettingsHooks, done: SubmenuDone): PickerList {
 					];
 
 	return new PickerList(
-		hooks.config.backend === "jev" ? "Jev model" : "pi model",
+		hooks.config.provider === "jev" ? "Jev model" : "pi model",
 		items,
 		hooks.theme,
 		(id) => {

@@ -13,7 +13,7 @@ export interface JudgeDeps {
 }
 
 export function createJudgeBackend(config: JudgeConfig, deps: JudgeDeps): JudgeBackend {
-	if (config.backend === "pi") {
+	if (config.provider === "pi") {
 		return createPiBackend({
 			model: config.model,
 			timeoutMs: config.timeoutMs,

@@ -1,9 +1,9 @@
 import { DEFAULT_JUDGE, defaultJudge, type JudgeConfig } from "#core/judge/config.ts";
 import { DEFAULT_MODE, type PermissionMode } from "#core/mode.ts";
 
-export type HeadlessMode = "allow" | "deny";
+export type NoUIMode = "allow" | "deny";
 
-export type FollowupDelivery = "result" | "message";
+export type NoteDelivery = "result" | "message";
 
 export type OutsideScope = "ask" | "deny" | "allow";
 
@@ -19,8 +19,8 @@ export interface TypingConfig {
 
 export interface PermissionConfig {
 	allow: string[];
-	headless: HeadlessMode | Record<string, HeadlessMode>;
-	followup: FollowupDelivery;
+	noUI: NoUIMode | Record<string, NoUIMode>;
+	notes: NoteDelivery;
 	mode: PermissionMode;
 	readOnlyBash: boolean;
 	workspace: WorkspaceConfig;
@@ -40,8 +40,8 @@ export const DEFAULT_WORKSPACE: WorkspaceConfig = {
 
 export const DEFAULT_CONFIG: PermissionConfig = {
 	allow: ["read", "grep", "find", "ls"],
-	headless: "deny",
-	followup: "result",
+	noUI: "deny",
+	notes: "result",
 	mode: DEFAULT_MODE,
 	readOnlyBash: true,
 	workspace: DEFAULT_WORKSPACE,
@@ -59,11 +59,11 @@ export function defaultConfig(): PermissionConfig {
 	};
 }
 
-export function isHeadlessMode(value: unknown): value is HeadlessMode {
+export function isNoUIMode(value: unknown): value is NoUIMode {
 	return value === "allow" || value === "deny";
 }
 
-export function isFollowupDelivery(value: unknown): value is FollowupDelivery {
+export function isNoteDelivery(value: unknown): value is NoteDelivery {
 	return value === "result" || value === "message";
 }
 

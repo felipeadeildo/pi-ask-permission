@@ -92,11 +92,11 @@ The mode belongs to the session, and survives a reload or a resume. `Alt+M` neve
 
 Commands that only read run without a prompt: `cat`, `grep`, `wc`, `git log`, `git branch` (listing), `git remote` (listing), chains of them, and a `for` loop over a literal word list. Anything that writes, substitutes a command, opens a subshell, or assigns a variable asks. A redirect that discards output (`2>/dev/null`, `2>&1`, `>/dev/null`) does not. Turn the check off with `readOnlyBash`.
 
-## AI approvals
+## Judge
 
-Off by default. With it on, a judge model answers first: a confident approval runs the call, a confident denial blocks it, and anything uncertain comes to you. So do timeouts, errors, and missing keys.
+Off by default. With it on, a model answers first. A confident yes runs the call, a confident no blocks it, and anything else comes to you, including timeouts, errors, and missing keys.
 
-Two backends:
+Two providers:
 
 - **Jev**, TypeSafe's System One model, answers typed questions with a verdict, a probability distribution, and a confidence.
 - **A pi model** is asked for strict JSON. A reply that is not valid JSON counts as no judgement.
@@ -111,7 +111,7 @@ The extension registers an auth-only `typesafe` provider, so the key is stored t
 
 ### Write a policy
 
-The policy is the rulebook the judge reads. Turn on `AI approvals (judge)` in `/perm` and a `Policy` row appears.
+The policy is the rulebook the judge reads. Turn on `Judge` in `/perm` and a `Policy` row appears.
 
 | Preset               | Allows                                            | Still asks                              |
 | -------------------- | ------------------------------------------------- | --------------------------------------- |
@@ -146,27 +146,29 @@ The judge answers a fixed set of atomic questions: a verdict, how reversible the
 risk = 0.60 × reversibility + 0.40 × sensitive
 ```
 
-A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, and `risk` is at or below `riskCeiling`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `onUncertain` says otherwise. The `never` list is checked in code first, so a call on it is never auto-approved.
+A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, and `risk` is at or below `riskCeiling`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `whenUnsure` says otherwise. Code checks `alwaysAsk` first, so a call on it is never auto-approved.
 
-The policy is authoritative and the tool call is treated as untrusted data, so a command cannot talk its way past `never`.
+The policy is authoritative and the tool call is treated as untrusted data, so a command cannot talk its way past `alwaysAsk`.
 
 ### Settings
 
-`/perm` lists the mode, the workspace boundary, read-only bash, the followup wire, and the headless behavior. The judge rows appear indented under `AI approvals (judge)`.
+The judge rows appear under `Judge` in `/perm`. Each row is the `judge` key of the same name in `config.json`.
 
-| Setting              | Does                                                                                               |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| AI approvals         | Turn the judge on or off                                                                           |
-| Judge                | Jev, or any model from pi                                                                          |
-| Model                | The model, such as `jev-latest`                                                                    |
-| When confident       | Approve or deny, or approve only                                                                   |
-| When unsure          | Ask you, allow, or deny                                                                            |
-| When it can't answer | Ask you, allow, or deny (asking is safest)                                                         |
-| Tools it may judge   | Bash only, bash and file writes, or every tool; hand-edited patterns in config.json read as Custom |
-| Policy               | Presets, or a full editor                                                                          |
-| Dry run              | Show the verdict, still ask                                                                        |
-| Judge with no UI     | Also judge in print, JSON, and subagent runs                                                       |
-| Remember approvals   | A judge approval becomes always yes for this session                                               |
+| Row                | Key                 | Does                                                        |
+| ------------------ | ------------------- | ----------------------------------------------------------- |
+| Judge              | `enabled`           | Turns the judge on                                          |
+| Provider           | `provider`          | Jev, or a model you set up in pi                            |
+| Model              | `model`             | Such as `jev-latest`                                        |
+| Can deny           | `canDeny`           | A confident no blocks the call. Off, it comes to you        |
+| When unsure        | `whenUnsure`        | Ask you, allow, or deny                                     |
+| When it fails      | `whenItFails`       | Ask you, allow, or deny on a timeout, error, or no key      |
+| Tools              | `tools`             | What the judge decides. Hand-edited patterns show as Custom |
+| Policy             | `policy`            | A preset, or your own text                                  |
+| Dry run            | `dryRun`            | Show the verdict, and still ask                             |
+| Judge with no UI   | `noUI`              | Also judge print, JSON, and subagent runs                   |
+| Remember approvals | `rememberApprovals` | A judge approval becomes always yes for this session        |
+
+`alwaysAsk` has no row. It lists patterns the judge never approves.
 
 ## Configuration
 
@@ -179,8 +181,8 @@ One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves
 ```json
 {
 	"allow": ["read", "grep", "find", "ls"],
-	"headless": "deny",
-	"followup": "result",
+	"noUI": "deny",
+	"notes": "result",
 	"mode": "manual",
 	"readOnlyBash": true,
 	"workspace": { "roots": ["."], "outside": "ask" },
@@ -192,38 +194,38 @@ The file also carries the full `judge` block, disabled by default.
 
 `allow` lists the tools that never prompt. Wildcards work, so `mcp_*` covers a family. Everything else asks, including tools registered later.
 
-`headless` decides when there is nobody to ask: print mode, JSON mode, or a subagent. It takes one mode or a per-tool map. Specificity wins over file order, so an exact name beats a wildcard and a wildcard beats `*`.
+`noUI` decides when nobody can answer, as in print mode, JSON mode, or a subagent. It takes one mode or a per-tool map. Specificity wins over file order, so an exact name beats a wildcard and a wildcard beats `*`.
 
 ```json
 {
-	"headless": { "*": "allow", "bash": "deny" }
+	"noUI": { "*": "allow", "bash": "deny" }
 }
 ```
 
-`followup` chooses where an approval note goes. `"result"` appends it to the tool result the model is already reading. `"message"` sends it as its own steering message.
+`notes` picks where a note on an approval goes. `"result"` adds it to the tool result. `"message"` sends it as a message of its own.
 
 `mode` is the mode a new session starts in. `"manual"` asks as usual, `"accept-edits"` runs file edits and writes inside the workspace, and `"auto"` runs everything inside it. Change it from `/perm` or `Alt+M` and only the current session moves. Change it here and only the next session.
 
 `typing` tunes the wait before the dialog opens. `pause` is the quiet time in milliseconds. `maxWait` caps the total wait, or `null` for no cap.
 
-A missing or malformed file falls back to the defaults and reports what it dropped. A typo never widens the gate.
+A missing or malformed file falls back to the defaults and reports what it dropped. A typo never widens the gate. A file from before 3.0 is read with the new names and rewritten once.
 
 ## Commands
 
-| Command               | Does                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| `/perm`               | settings dialog for the mode, workspace, read-only bash, followup wire, judge, and headless |
-| `/perm mode`          | cycle the session mode (also `Alt+M`)                                                       |
-| `/perm mode auto`     | set the session mode (also `manual` and `accept-edits`)                                     |
-| `/perm status`        | resolved config, always yes per scope, and file paths                                       |
-| `/perm judge`         | open the AI-approval settings                                                               |
-| `/perm judge on`      | turn AI approvals on (also `off`)                                                           |
-| `/perm judge log`     | the most recent judge decisions this session                                                |
-| `/perm judge test`    | make one real judge request and report the model, latency, and any error                    |
-| `/perm reset`         | forget this session's always yes                                                            |
-| `/perm reset project` | delete this project's always yes file                                                       |
-| `/perm reset global`  | delete the global always yes file                                                           |
-| `/perm reset all`     | clear all three scopes                                                                      |
+| Command               | Does                                                                      |
+| --------------------- | ------------------------------------------------------------------------- |
+| `/perm`               | settings for the mode, workspace, notes, read-only bash, judge, and no UI |
+| `/perm mode`          | cycle the session mode (also `Alt+M`)                                     |
+| `/perm mode auto`     | set the session mode (also `manual` and `accept-edits`)                   |
+| `/perm status`        | resolved config, always yes per scope, and file paths                     |
+| `/perm judge`         | open the AI-approval settings                                             |
+| `/perm judge on`      | turn the judge on (also `off`)                                            |
+| `/perm judge log`     | the most recent judge decisions this session                              |
+| `/perm judge test`    | make one real judge request and report the model, latency, and any error  |
+| `/perm reset`         | forget this session's always yes                                          |
+| `/perm reset project` | delete this project's always yes file                                     |
+| `/perm reset global`  | delete the global always yes file                                         |
+| `/perm reset all`     | clear all three scopes                                                    |
 
 ## How a call is decided
 
@@ -232,9 +234,9 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 3. The tool is in `allow`, allow.
 4. `readOnlyBash` is on and the bash command only reads, allow.
 5. A call outside the workspace is not auto-approved. `workspace.outside` says whether it asks you directly or blocks.
-6. AI approvals are on and the tool is judged, ask the judge. A confident allow runs, a confident deny blocks, and anything uncertain continues.
+6. The judge is on and decides this tool. A confident allow runs, a confident deny blocks, and anything uncertain continues.
 7. There is a UI, ask.[^edit]
-8. There is no UI, `headless` decides. With `Judge with no UI` on, the judge gets the same first refusal first, then `headless` decides anything it could not.
+8. There is no UI, `noUI` decides. With `Judge with no UI` on, the judge answers first.
 
 [^edit]: An `edit` whose `oldText` cannot match the file is blocked with the matcher's own error, no dialog. Asking about an edit that is already going to fail only costs a keystroke.
 
@@ -248,7 +250,7 @@ A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`
 
 `accept edits` covers the built-in `edit` and `write` tools. A custom tool that writes files is not in that set, so it asks.
 
-The judge is a model. It narrows what reaches the dialog; it does not guarantee anything. A `never` pattern, a deterministic block, or an uncertain verdict still reaches you, and in `manual` the judge can only narrow. `auto` and `accept edits` skip the judge for the tools they approve. The judge reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
+The judge is a model. It narrows what reaches the dialog; it does not guarantee anything. An `alwaysAsk` pattern, a deterministic block, or an uncertain verdict still reaches you, and in `manual` the judge can only narrow. `auto` and `accept edits` skip the judge for the tools they approve. The judge reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
 
 A bash command whose paths the check cannot read counts as outside. `$HOME`, `$SECRET`, and `"$@"` all ask for that reason.
 

@@ -5,7 +5,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_CONFIG, defaultConfig } from "#core/config/schema.ts";
 import { defaultJudge } from "#core/judge/config.ts";
 import { MODE_LABEL, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
-import { buildJudgeSettings, JUDGE_SETTING_IDS, judgeValues } from "#ui/settings/judge.ts";
+import { buildJudgeSettings, judgeValues } from "#ui/settings/judge.ts";
 import {
 	judgeToggleItem,
 	modeItem,
@@ -39,7 +39,7 @@ describe("settings layout", () => {
 	test("the child rows never repeat the enable toggle", () => {
 		const ids = judgeScreen().items.map((item) => item.id);
 		expect(ids).not.toContain("judge.enabled");
-		expect(ids).toEqual(JUDGE_SETTING_IDS);
+		expect(ids).toEqual(Object.keys(judgeValues(defaultJudge())));
 	});
 
 	test("every child row explains itself", () => {
@@ -105,12 +105,6 @@ describe("settings layout", () => {
 		expect(ids("manual")).toContain("readOnlyBash");
 		expect(ids("accept-edits")).toContain("readOnlyBash");
 		expect(ids("auto")).not.toContain("readOnlyBash");
-		expect(ids("auto")).toEqual([
-			"mode",
-			"workspace.outside",
-			"followup",
-			"judge.enabled",
-			"headless",
-		]);
+		expect(ids("auto")).toEqual(["mode", "workspace.outside", "notes", "judge.enabled", "noUI"]);
 	});
 });

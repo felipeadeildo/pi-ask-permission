@@ -3,8 +3,8 @@ import { Container, type SettingItem, SettingsList, Text } from "@earendil-works
 
 import type { AlwaysYes } from "#core/always-yes.ts";
 import {
-	isFollowupDelivery,
-	isHeadlessMode,
+	isNoteDelivery,
+	isNoUIMode,
 	isOutsideScope,
 	type OutsideScope,
 	type PermissionConfig,
@@ -18,11 +18,9 @@ import { notifyJudgePolicyWarning } from "#ui/settings/status.ts";
 export interface SettingsState {
 	config: PermissionConfig;
 	alwaysYes: AlwaysYes;
-	/** Effective mode for this session, read live so the dialog stays truthful. */
 	mode: () => PermissionMode;
 	setMode: (mode: PermissionMode) => void;
 	save: () => void;
-
 	onJudgeChange: () => void;
 }
 
@@ -140,7 +138,6 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 			}
 
 			if (id === "mode") {
-				// Session-only: the mode never reaches config.json, so it cannot leak into other sessions.
 				const mode = modeFromLabel(value);
 				if (mode) state.setMode(mode);
 				install("mode");
@@ -150,13 +147,12 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 			if (id === "workspace.outside" && isOutsideScope(value)) {
 				state.config.workspace.outside = value;
 				state.save();
-				// The status bar spells out `auto \u00b7 anywhere`, so it moves with this row.
 				state.setMode(state.mode());
 				return;
 			}
 
-			if (id === "followup" && isFollowupDelivery(value)) state.config.followup = value;
-			else if (id === "headless" && isHeadlessMode(value)) state.config.headless = value;
+			if (id === "notes" && isNoteDelivery(value)) state.config.notes = value;
+			else if (id === "noUI" && isNoUIMode(value)) state.config.noUI = value;
 			else if (id === "readOnlyBash") state.config.readOnlyBash = value === "on";
 			state.save();
 		};
@@ -186,20 +182,19 @@ export function topLevelItems(
 	mode: PermissionMode,
 	judgeChildren: SettingItem[],
 ): SettingItem[] {
-	const items = [modeItem(mode), outsideItem(config), followupItem(config)];
-	// `auto` approves everything inside the workspace before the read-only check runs.
+	const items = [modeItem(mode), outsideItem(config), notesItem(config)];
 	if (mode !== "auto") items.push(readOnlyBashItem(config));
 
-	return [...items, judgeToggleItem(config), ...judgeChildren, headlessItem(config)];
+	return [...items, judgeToggleItem(config), ...judgeChildren, noUIItem(config)];
 }
 
-function followupItem(config: PermissionConfig): SettingItem {
+function notesItem(config: PermissionConfig): SettingItem {
 	return {
-		id: "followup",
-		label: "Followup wire",
-		currentValue: config.followup,
+		id: "notes",
+		label: "Notes",
+		currentValue: config.notes,
 		values: ["result", "message"],
-		description: "Where a note attached to an approval reaches the model",
+		description: "result adds your note to the tool result. message sends it on its own.",
 	};
 }
 
@@ -215,9 +210,9 @@ export function outsideItem(config: PermissionConfig): SettingItem {
 }
 
 const OUTSIDE_DESCRIPTION: Record<OutsideScope, string> = {
-	ask: "A call that leaves workspace.roots comes straight to you, and skips the judge",
-	deny: "A call that leaves workspace.roots is blocked, with no dialog",
-	allow: "The boundary is off. With mode auto, every call runs anywhere, which is the old yolo",
+	ask: "A call outside workspace.roots asks you. The judge never sees it.",
+	deny: "A call outside workspace.roots is blocked.",
+	allow: "No boundary. auto runs everything, anywhere.",
 };
 
 export function readOnlyBashItem(config: PermissionConfig): SettingItem {
@@ -226,29 +221,27 @@ export function readOnlyBashItem(config: PermissionConfig): SettingItem {
 		label: "Read-only bash",
 		currentValue: config.readOnlyBash ? "on" : "off",
 		values: ["off", "on"],
-		description: "A read-only command that stays in the workspace runs without a prompt",
+		description: "Commands that only read run without asking.",
 	};
 }
 
 export function judgeToggleItem(config: PermissionConfig): SettingItem {
 	return {
 		id: "judge.enabled",
-		label: "AI approvals (judge)",
+		label: "Judge",
 		currentValue: config.judge.enabled ? "on" : "off",
 		values: ["off", "on"],
-		description: config.judge.enabled
-			? "A judge model approves or denies confident calls; uncertain ones still come to you."
-			: "Delegate the yes/no to a model. Turn it on to show its settings below.",
+		description: "A model answers first. Only the calls it is unsure about reach you.",
 	};
 }
 
-function headlessItem(config: PermissionConfig): SettingItem {
+function noUIItem(config: PermissionConfig): SettingItem {
 	return {
-		id: "headless",
-		label: "No-UI behavior",
-		currentValue: typeof config.headless === "string" ? config.headless : "per tool",
+		id: "noUI",
+		label: "With no UI",
+		currentValue: typeof config.noUI === "string" ? config.noUI : "per tool",
 		values: ["deny", "allow"],
-		description: "What happens when nobody can be asked (print, json, headless)",
+		description: "When nobody can answer, as in print mode or a subagent.",
 	};
 }
 
@@ -259,7 +252,7 @@ export function modeItem(mode: PermissionMode): SettingItem {
 		currentValue: MODE_LABEL[mode],
 		values: PERMISSION_MODES.map((entry) => MODE_LABEL[entry]),
 		description:
-			"manual asks, accept edits runs file writes, auto runs everything in the workspace; Outside decides the rest",
+			"manual asks. accept edits runs file edits. auto runs everything in the workspace.",
 	};
 }
 

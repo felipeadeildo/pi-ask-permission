@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 
 import { ALWAYS_YES_FILE } from "#core/always-yes.ts";
-import { decodeConfig } from "#core/config/decode.ts";
+import { decodeConfig, isOutdated } from "#core/config/decode.ts";
 import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
 import { CONFIG_DIR } from "#identity";
 import { describe, isRecord } from "#util/primitives.ts";
@@ -53,6 +53,7 @@ export function loadConfig(): LoadedConfig {
 
 		const warnings: string[] = [];
 		const config = decodeConfig(raw, warnings);
+		if (isOutdated(raw)) writeConfigFile(path, config);
 		return { config, path, warnings };
 	} catch (error) {
 		return {

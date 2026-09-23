@@ -23,7 +23,7 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 	const { config, ctx, toolName, target } = options;
 	if (!isJudged(config, toolName)) return undefined;
 
-	if (!ctx.hasUI && !config.judge.headless) return undefined;
+	if (!ctx.hasUI && !config.judge.noUI) return undefined;
 
 	const input: JudgeInput = {
 		toolName,
@@ -61,7 +61,7 @@ export async function judgeGate(options: JudgeGateOptions): Promise<JudgeOutcome
 
 function cacheKey(config: PermissionConfig, input: JudgeInput): string {
 	return [
-		config.judge.backend,
+		config.judge.provider,
 		config.judge.model,
 		input.toolName,
 		input.target.summary,

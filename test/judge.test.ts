@@ -5,7 +5,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_CONFIG, type PermissionConfig } from "#core/config/schema.ts";
 import { createJevBackend, parseJevResponse, toAnswers } from "#core/judge/backends/jev.ts";
 import { parseJudgeJson, toAnswersFromJson } from "#core/judge/backends/pi-model.ts";
-import { composeVerdict, judgeRisk, neverMatches, RISK_WEIGHTS } from "#core/judge/compose.ts";
+import { composeVerdict, judgeRisk, alwaysAskMatches, RISK_WEIGHTS } from "#core/judge/compose.ts";
 import { defaultJudge, type JudgeConfig } from "#core/judge/config.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeToolCall } from "#core/judge/pipeline.ts";
@@ -77,8 +77,8 @@ describe("composeVerdict", () => {
 		expect(result.decision).toBe("uncertain");
 	});
 
-	test("never auto-denies when autoDeny is off", () => {
-		const config = { ...defaultJudge(), autoDeny: false };
+	test("never auto-denies when canDeny is off", () => {
+		const config = { ...defaultJudge(), canDeny: false };
 		const result = composeVerdict(config, answers({ verdict: { choice: "deny", confidence: 1 } }));
 		expect(result.decision).toBe("uncertain");
 	});
@@ -116,11 +116,11 @@ describe("judgeRisk", () => {
 	});
 });
 
-describe("neverMatches", () => {
+describe("alwaysAskMatches", () => {
 	test("matches the summary or any level", () => {
-		const config = { ...defaultJudge(), never: ["rm -rf*"] };
-		expect(neverMatches(config, ["rm -rf /", "rm"])).toBe(true);
-		expect(neverMatches(config, ["pnpm test"])).toBe(false);
+		const config = { ...defaultJudge(), alwaysAsk: ["rm -rf*"] };
+		expect(alwaysAskMatches(config, ["rm -rf /", "rm"])).toBe(true);
+		expect(alwaysAskMatches(config, ["pnpm test"])).toBe(false);
 	});
 });
 
@@ -302,7 +302,7 @@ describe("judgeToolCall", () => {
 			},
 		};
 
-		const config = { ...defaultJudge(), never: ["rm -rf*"] };
+		const config = { ...defaultJudge(), alwaysAsk: ["rm -rf*"] };
 		const outcome = await judgeToolCall({
 			config,
 			backend,
@@ -373,7 +373,7 @@ describe("judgeToolCall", () => {
 		expect(ask.record?.error).toBe("network");
 
 		const deny = await judgeToolCall({
-			config: { ...defaultJudge(), onError: "deny" },
+			config: { ...defaultJudge(), whenItFails: "deny" },
 			backend,
 			input: judgeInput(),
 		});
@@ -389,7 +389,7 @@ describe("judgeToolCall", () => {
 		};
 
 		const outcome = await judgeToolCall({
-			config: { ...defaultJudge(), dryRun: true, onError: "deny" },
+			config: { ...defaultJudge(), dryRun: true, whenItFails: "deny" },
 			backend,
 			input: judgeInput(),
 		});
@@ -408,7 +408,7 @@ describe("judgeToolCall", () => {
 		});
 
 		const allow = await judgeToolCall({
-			config: { ...defaultJudge(), onUncertain: "allow" },
+			config: { ...defaultJudge(), whenUnsure: "allow" },
 			backend,
 			input: judgeInput(),
 		});
@@ -603,7 +603,7 @@ describe("judgeGate", () => {
 
 	test("skips the judge without a UI unless headless judging is on", async () => {
 		const outcome = await judgeGate({
-			config: askConfig({ enabled: true, backend: "pi", model: "p/m" }),
+			config: askConfig({ enabled: true, provider: "pi", model: "p/m" }),
 			ctx: fakeContext(allowMessage, false),
 			toolName: "bash",
 			target,
@@ -615,7 +615,7 @@ describe("judgeGate", () => {
 	});
 
 	test("runs the pi judge, reports status, and caches a clean verdict", async () => {
-		const config = askConfig({ enabled: true, backend: "pi", model: "p/m" });
+		const config = askConfig({ enabled: true, provider: "pi", model: "p/m" });
 		const cache = new Map<string, NonNullable<Awaited<ReturnType<typeof judgeGate>>>>();
 		const statuses: (string | undefined)[] = [];
 		let calls = 0;
