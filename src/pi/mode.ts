@@ -1,8 +1,9 @@
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import type { OutsideScope } from "#core/config/schema.ts";
 import { MODE_DESCRIPTION, MODE_LABEL, type PermissionMode } from "#core/mode.ts";
 import { NAME } from "#identity";
+import { record } from "#pi/session-entries.ts";
 import type { SessionState } from "#pi/session.ts";
 
 export const MODE_STATUS = `${NAME}:mode`;
@@ -13,11 +14,13 @@ interface ModeChangeOptions {
 }
 
 export function setSessionMode(
+	pi: ExtensionAPI,
 	state: SessionState,
 	mode: PermissionMode,
 	ctx: ExtensionContext,
 	{ announce = true }: ModeChangeOptions = {},
 ): void {
+	if (mode !== state.mode) record(pi, { kind: "mode", mode });
 	state.mode = mode;
 	renderModeStatus(ctx, mode, state.config.workspace.outside);
 

@@ -23,6 +23,7 @@ import type { CallDescriptor } from "#core/tools.ts";
 import { NAME } from "#identity";
 import { clearModeStatus, renderModeStatus } from "#pi/mode.ts";
 import { editFailure } from "#pi/preflight.ts";
+import { restoreSession } from "#pi/session-entries.ts";
 import {
 	openAlwaysYes,
 	noteJudgeFailure,
@@ -42,9 +43,15 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 	pi.on("session_start", (_event, ctx) => {
 		for (const warning of state.configWarnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
 		openAlwaysYes(state, ctx);
+		restoreSession(state, ctx);
 		notifyJudgePolicyWarning(state.config, ctx);
 		renderModeStatus(ctx, state.mode, state.config.workspace.outside);
 		state.typing.start(ctx);
+	});
+
+	pi.on("session_tree", (_event, ctx) => {
+		restoreSession(state, ctx);
+		renderModeStatus(ctx, state.mode, state.config.workspace.outside);
 	});
 
 	pi.on("session_shutdown", (_event, ctx) => {
@@ -81,7 +88,7 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 
 		if (answer.remember) {
 			const scope = answer.scope ?? "session";
-			rememberAlwaysYes(state, ctx, scope, call.toolName, answer.remember);
+			rememberAlwaysYes(pi, state, ctx, scope, call.toolName, answer.remember);
 
 			ctx.ui.notify(
 				`${NAME}: always yes for ${call.toolName} \u00b7 ${answer.remember} (${SCOPE_LABEL[scope]})`,
@@ -155,7 +162,7 @@ async function runJudge(
 	if (outcome.action === "allow") {
 		if (state.config.judge.grant) {
 			const level = call.target.levels.at(-1);
-			if (level !== undefined) rememberAlwaysYes(state, ctx, "session", call.toolName, level);
+			if (level !== undefined) rememberAlwaysYes(pi, state, ctx, "session", call.toolName, level);
 		}
 		return { action: "allow" };
 	}

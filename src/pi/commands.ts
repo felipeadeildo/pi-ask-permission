@@ -25,7 +25,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 			config: state.config,
 			alwaysYes: state.alwaysYes,
 			mode: () => state.mode,
-			setMode: (mode) => setSessionMode(state, mode, ctx, { announce: false }),
+			setMode: (mode) => setSessionMode(pi, state, mode, ctx, { announce: false }),
 			save: () => saveConfigFile(state, ctx),
 			onJudgeChange: () => state.judgeCache.clear(),
 		});
@@ -38,7 +38,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 	}
 
 	function cycleMode(ctx: ExtensionContext): void {
-		setSessionMode(state, nextMode(state.mode), ctx);
+		setSessionMode(pi, state, nextMode(state.mode), ctx);
 	}
 
 	async function runJudgeProbe(ctx: ExtensionContext): Promise<void> {
@@ -119,7 +119,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 			return;
 		}
 
-		setSessionMode(state, mode, ctx);
+		setSessionMode(pi, state, mode, ctx);
 	}
 
 	pi.registerCommand("perm", {
@@ -145,7 +145,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 				}
 
 				const where = target === "all" ? "every scope" : SCOPE_LABEL[target];
-				const removed = alwaysYesCount(forgetAlwaysYes(state, ctx, target));
+				const removed = alwaysYesCount(forgetAlwaysYes(pi, state, ctx, target));
 				ctx.ui.notify(`${NAME}: forgot ${removed} from ${where}`, "info");
 				return;
 			}

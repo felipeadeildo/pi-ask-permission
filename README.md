@@ -62,7 +62,7 @@ The narrowest level is preselected, so `enter` remembers exactly what was on scr
 
 | Scope        | Stored in                                                    | Survives                 |
 | ------------ | ------------------------------------------------------------ | ------------------------ |
-| this session | memory                                                       | nothing                  |
+| this session | the session file                                             | reloads and resumes      |
 | this project | `<project>/.pi/extensions/pi-ask-permission/always-yes.json` | reloads and new sessions |
 | everywhere   | `~/.pi/agent/extensions/pi-ask-permission/always-yes.json`   | everything               |
 
@@ -80,7 +80,7 @@ The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level
 
 A call that left the workspace never reaches the judge. `auto` does not consult it inside either.
 
-The mode is session state. `Alt+M` and `/perm mode` never write to `config.json`, so turning on `auto` in one session does not affect another. The `mode` field in `config.json` only sets where the next session starts.
+The mode belongs to the session. `Alt+M` and `/perm mode` never write to `config.json`, so turning on `auto` in one session does not affect another. The session file keeps it, so a reload or a resume comes back in the same mode, and a fork or a `/tree` jump takes the mode of the branch it lands on. The `mode` field in `config.json` only sets where a new session starts.
 
 ## Workspace
 

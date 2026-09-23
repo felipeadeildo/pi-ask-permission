@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes } from "#core/always-yes.ts";
+import type { DialogAnswer } from "#core/answer.ts";
 import { defaultConfig } from "#core/config/schema.ts";
 import type { OutsideScope } from "#core/config/schema.ts";
 import type { PermissionMode } from "#core/mode.ts";
@@ -70,7 +71,10 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 }
 
 /** `onDialog` runs when the permission dialog opens, before it is answered. */
-function fakeContext(onDialog: () => void = () => {}): ExtensionContext {
+function fakeContext(
+	onDialog: () => void = () => {},
+	answer: DialogAnswer = { decision: "allow" },
+): ExtensionContext {
 	return {
 		mode: "tui",
 		hasUI: true,
@@ -82,7 +86,7 @@ function fakeContext(onDialog: () => void = () => {}): ExtensionContext {
 			setStatus: () => {},
 			custom: async () => {
 				onDialog();
-				return { decision: "allow" };
+				return answer;
 			},
 		},
 	} as unknown as ExtensionContext;
@@ -258,6 +262,22 @@ describe("workspace scope", () => {
 		);
 
 		expect(opened).toBe(true);
+	});
+
+	test("always yes for this session is written to the session", async () => {
+		const { entries, state, toolCall } = harness("manual");
+		const answer: DialogAnswer = { decision: "allow", remember: "rm -rf build", scope: "session" };
+
+		await toolCall(
+			judgeCall("call-1", "rm -rf build"),
+			fakeContext(() => {}, answer),
+		);
+
+		expect(state.alwaysYes.has("bash", ["rm -rf build"])).toBe(true);
+		expect(entries).toContainEqual({
+			customType: "pi-ask-permission:session",
+			data: { kind: "always-yes", toolName: "bash", level: "rm -rf build" },
+		});
 	});
 
 	test("always yes still wins over the boundary", async () => {
