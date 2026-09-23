@@ -1,4 +1,4 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import { renderDiff, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
 	type Focusable,
@@ -32,11 +32,13 @@ const TITLE_SUFFIX = " \u256e";
 const TITLE_CHROME_WIDTH = visibleWidth(TITLE_PREFIX) + visibleWidth(TITLE_SUFFIX);
 
 const SUMMARY_ROWS = 3;
+const DIFF_ROWS = 16;
 
 interface AskDialogOptions {
 	theme: Theme;
 	toolName: string;
 	target: CallDescriptor;
+	diff?: string;
 	keybindings: KeybindingsManager;
 	requestRender: () => void;
 	complete: (answer: DialogAnswer) => void;
@@ -46,6 +48,7 @@ export class AskDialog implements Component, Focusable {
 	private readonly theme: Theme;
 	private readonly toolName: string;
 	private readonly target: CallDescriptor;
+	private readonly diff: string | undefined;
 	private readonly requestRender: () => void;
 	private readonly complete: (answer: DialogAnswer) => void;
 	private readonly keybindings: KeybindingsManager;
@@ -82,6 +85,7 @@ export class AskDialog implements Component, Focusable {
 		this.theme = options.theme;
 		this.toolName = options.toolName;
 		this.target = options.target;
+		this.diff = options.diff;
 		this.requestRender = options.requestRender;
 		this.complete = options.complete;
 		this.keybindings = options.keybindings;
@@ -110,7 +114,7 @@ export class AskDialog implements Component, Focusable {
 
 	render(width: number): string[] {
 		const inner = Math.max(1, width - 4);
-		const lines: string[] = this.summaryLines(inner);
+		const lines: string[] = [...this.summaryLines(inner), ...this.diffLines()];
 		lines.push("");
 
 		if (this.phase === "levels") {
@@ -335,6 +339,16 @@ export class AskDialog implements Component, Focusable {
 			: this.theme.fg("dim", truncateToWidth(draft, noteRoom));
 		const head = this.theme.fg(active ? option.tone : "text", label);
 		return truncateToWidth(`${prefix}${head}${note}`, inner);
+	}
+
+	private diffLines(): string[] {
+		if (!this.diff) return [];
+
+		const lines = renderDiff(this.diff).split("\n");
+		const shown = lines.slice(0, DIFF_ROWS);
+		const hidden = lines.length - shown.length;
+		if (hidden > 0) shown.push(this.theme.fg("dim", `\u2026 ${hidden} more lines`));
+		return ["", ...shown];
 	}
 
 	private summaryLines(inner: number): string[] {

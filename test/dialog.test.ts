@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import { initTheme, type Theme } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, type KeybindingsManager, visibleWidth } from "@earendil-works/pi-tui";
 
 import type { Scope } from "#core/always-yes.ts";
@@ -23,13 +23,18 @@ const KEYS = { up: "\x1b[A", down: "\x1b[B", enter: "\r", tab: "\t", esc: "\x1b"
 /** Ctrl+V is never pressed in these tests. */
 const NO_PASTE = { matches: () => false } as unknown as KeybindingsManager;
 
-function open(toolName = "bash", input: unknown = { command: "git status --short" }) {
+function open(
+	toolName = "bash",
+	input: unknown = { command: "git status --short" },
+	diff?: string,
+) {
 	const decisions: DialogAnswer[] = [];
 	let renders = 0;
 	const dialog = new AskDialog({
 		theme,
 		toolName,
 		target: toolAdapter(toolName).describe(asToolInput(input)),
+		diff,
 		keybindings: NO_PASTE,
 		requestRender: () => {
 			renders++;
@@ -49,6 +54,21 @@ function type(dialog: AskDialog, text: string): void {
 
 const YES: DialogAnswer = { decision: "allow", note: undefined, remember: undefined };
 const NO: DialogAnswer = { decision: "deny", note: undefined, remember: undefined };
+
+describe("diff", () => {
+	beforeAll(() => initTheme("dark", false));
+
+	test("shows the change under the path, capped", () => {
+		const diff = Array.from({ length: 30 }, (_, index) => `+${index + 1} line ${index + 1}`).join(
+			"\n",
+		);
+		const text = open("write", { path: "a.ts" }, diff).dialog.render(80).join("\n");
+
+		expect(text).toContain("line 1");
+		expect(text).not.toContain("line 30");
+		expect(text).toContain("14 more lines");
+	});
+});
 
 describe("menu", () => {
 	test("enter on the default row allows", () => {

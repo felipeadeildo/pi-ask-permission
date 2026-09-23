@@ -22,7 +22,7 @@ import type { CallDescriptor } from "#core/tools.ts";
 import { NAME } from "#identity";
 import { announce, type Decided } from "#pi/api.ts";
 import { clearModeStatus, renderModeStatus } from "#pi/mode.ts";
-import { editFailure } from "#pi/preflight.ts";
+import { type FileChange, type PendingWrites, previewEdit, previewWrite } from "#pi/preview.ts";
 import { restoreSession } from "#pi/session-entries.ts";
 import {
 	loadSessionConfig,
@@ -86,6 +86,10 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 	});
 
 	pi.on("tool_result", (event) => {
+		for (const [path, write] of state.pendingWrites) {
+			if (write.toolCallId === event.toolCallId) state.pendingWrites.delete(path);
+		}
+
 		const note = state.pendingNotes.get(event.toolCallId);
 		if (!note) return undefined;
 
@@ -115,17 +119,18 @@ async function gate(
 		return { action: "block", by: "no UI", reason: `${NAME}: no UI to approve "${call.toolName}"` };
 	}
 
-	if (isToolCallEventType("edit", event)) {
-		const failure = await editFailure(ctx, event.input);
-		if (failure) return { action: "block", by: "edit check", reason: failure };
-	}
+	const change = await previewChange(ctx, event, state.pendingWrites);
+	if (change && "error" in change)
+		return { action: "block", by: "edit check", reason: change.error };
 
 	await state.typing.waitUntilQuiet(ctx.signal, (waiting) => {
 		ctx.ui.setStatus(NAME, waiting ? TYPING_STATUS : undefined);
 	});
 
 	state.typing.pause();
-	const answer = await ask(ctx, call.toolName, call.target).finally(() => state.typing.resume());
+	const answer = await ask(ctx, call.toolName, call.target, change?.diff).finally(() =>
+		state.typing.resume(),
+	);
 
 	if (answer.decision === "deny") {
 		return { action: "block", by: "you", reason: denyReason(answer.note), note: answer.note };
@@ -140,7 +145,19 @@ async function gate(
 		);
 	}
 
+	if (change)
+		state.pendingWrites.set(change.path, { toolCallId: event.toolCallId, after: change.after });
 	return { action: "allow", by: "you", note: answer.note };
+}
+
+function previewChange(
+	ctx: ExtensionContext,
+	event: ToolCallEvent,
+	pending: PendingWrites,
+): Promise<FileChange | undefined> {
+	if (isToolCallEventType("edit", event)) return previewEdit(ctx, event.input, pending);
+	if (isToolCallEventType("write", event)) return previewWrite(ctx, event.input, pending);
+	return Promise.resolve(undefined);
 }
 
 async function runJudge(
@@ -196,6 +213,7 @@ async function ask(
 	ctx: ExtensionContext,
 	toolName: string,
 	target: CallDescriptor,
+	diff: string | undefined,
 ): Promise<DialogAnswer> {
 	if (ctx.mode === "tui") {
 		try {
@@ -205,6 +223,7 @@ async function ask(
 						theme,
 						toolName,
 						target,
+						diff,
 						keybindings,
 						requestRender: () => tui.requestRender(),
 						complete: done,

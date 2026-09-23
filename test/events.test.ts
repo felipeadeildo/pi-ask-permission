@@ -49,6 +49,8 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 		config: { ...enabledJudge(), workspace: { roots: ["."], outside } },
 		mode,
 		alwaysYes: new AlwaysYes(),
+		customTools: new Map(),
+		pendingWrites: new Map(),
 		pendingNotes: new Map<string, string>(),
 		judgeCache: new Map(),
 		judgeLog: [],
