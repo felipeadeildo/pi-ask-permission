@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { defaultConfig } from "#core/config/schema.ts";
+import type { OutsideScope } from "#core/config/schema.ts";
+import { grantKey } from "#core/grants.ts";
 import type { PermissionMode } from "#core/mode.ts";
 import { registerEvents } from "#pi/events.ts";
 import type { SessionState } from "#pi/session.ts";
@@ -23,7 +25,7 @@ function enabledJudge(): SessionState["config"] {
 	return { ...config, judge: { ...config.judge, enabled: true, never: ["*"] } };
 }
 
-function harness(mode: PermissionMode = "manual") {
+function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask") {
 	const entries: Entry[] = [];
 	const handlers = new Map<string, Handler>();
 
@@ -38,7 +40,7 @@ function harness(mode: PermissionMode = "manual") {
 	} as unknown as ExtensionAPI;
 
 	const state = {
-		config: enabledJudge(),
+		config: { ...enabledJudge(), workspace: { roots: ["."], outside } },
 		mode,
 		configFile: "/dev/null",
 		configWarnings: [],
@@ -62,7 +64,7 @@ function harness(mode: PermissionMode = "manual") {
 	const toolCall = handlers.get("tool_call");
 	if (!toolCall) throw new Error("no tool_call handler");
 
-	return { entries, toolCall };
+	return { entries, state, toolCall };
 }
 
 /** `onDialog` runs when the permission dialog opens, before it is answered. */
@@ -88,8 +90,8 @@ function judgeCall(id: string, command: string) {
 	return { toolName: "bash", toolCallId: id, input: { command } };
 }
 
-function writeCall(id: string) {
-	return { toolName: "write", toolCallId: id, input: { path: "a.ts", content: "x" } };
+function writeCall(id: string, path = "a.ts") {
+	return { toolName: "write", toolCallId: id, input: { path, content: "x" } };
 }
 
 describe("judge cards in the transcript", () => {
@@ -124,8 +126,8 @@ describe("judge cards in the transcript", () => {
 });
 
 describe("session modes", () => {
-	test("yolo runs a bash call without opening the dialog", async () => {
-		const { toolCall } = harness("yolo");
+	test("auto runs a bash call without opening the dialog", async () => {
+		const { toolCall } = harness("auto");
 		let opened = false;
 
 		const result = await toolCall(
@@ -180,5 +182,105 @@ describe("session modes", () => {
 		);
 
 		expect(opened).toBe(true);
+	});
+});
+
+describe("workspace scope", () => {
+	test("auto does not approve a call outside the workspace", async () => {
+		const { entries, toolCall } = harness("auto");
+		let opened = false;
+
+		await toolCall(
+			judgeCall("call-1", "cat /etc/passwd"),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(opened).toBe(true);
+		expect(entries).toHaveLength(0);
+	});
+
+	test("accept edits does not approve a write outside the workspace", async () => {
+		const { toolCall } = harness("accept-edits");
+		let opened = false;
+
+		await toolCall(
+			writeCall("call-1", "/etc/hosts"),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(opened).toBe(true);
+	});
+
+	test("a reference resolves through the loop that owns it", async () => {
+		const { toolCall } = harness("auto");
+		let opened = false;
+
+		const result = await toolCall(
+			judgeCall("call-1", `for f in src/a.ts src/b.ts; do cat "$f"; done`),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(result).toBeUndefined();
+		expect(opened).toBe(false);
+	});
+
+	test("a reference the loop cannot resolve still asks", async () => {
+		const { toolCall } = harness("auto");
+		let opened = false;
+
+		await toolCall(
+			judgeCall("call-1", `cat "$SECRET"`),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(opened).toBe(true);
+	});
+
+	test("a grant still wins over the boundary", async () => {
+		const { state, toolCall } = harness("manual");
+		let opened = false;
+		state.grants.session.add(grantKey("bash", "cat /etc/passwd"));
+
+		const result = await toolCall(
+			judgeCall("call-1", "cat /etc/passwd"),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(result).toBeUndefined();
+		expect(opened).toBe(false);
+	});
+
+	test("outside deny blocks before the dialog", async () => {
+		const { entries, toolCall } = harness("auto", "deny");
+
+		const result = await toolCall(judgeCall("call-1", "cat /etc/passwd"), fakeContext());
+
+		expect(result).toEqual({ block: true, reason: expect.stringContaining("/etc/passwd") });
+		expect(entries).toHaveLength(0);
+	});
+
+	test("outside allow is what yolo used to be", async () => {
+		const { toolCall } = harness("auto", "allow");
+		let opened = false;
+
+		const result = await toolCall(
+			judgeCall("call-1", "cat /etc/passwd"),
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(result).toBeUndefined();
+		expect(opened).toBe(false);
 	});
 });

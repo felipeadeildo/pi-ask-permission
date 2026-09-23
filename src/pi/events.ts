@@ -13,7 +13,8 @@ import { judgeVerdictText, remember, warnOnce } from "#core/judge/report.ts";
 import { modeApproves } from "#core/mode.ts";
 import { isReadOnlyCommand } from "#core/readonly-bash.ts";
 import type { CallDescriptor } from "#core/target.ts";
-import { deriveTarget } from "#core/target.ts";
+import { deriveTarget, shortenHome } from "#core/target.ts";
+import { checkWorkspace } from "#core/workspace.ts";
 import { NAME } from "#identity";
 import { clearModeStatus, renderModeStatus } from "#pi/mode.ts";
 import { editFailure } from "#pi/preflight.ts";
@@ -38,7 +39,7 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		for (const warning of state.configWarnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
 		loadGrantScopes(state, ctx);
 		notifyJudgePolicyWarning(state.config, ctx);
-		renderModeStatus(ctx, state.mode);
+		renderModeStatus(ctx, state.mode, state.config.workspace.outside);
 		state.typing.start(ctx);
 	});
 
@@ -51,13 +52,17 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		const { config } = state;
 		const toolName = event.toolName;
 
-		if (modeApproves(state.mode, toolName)) return undefined;
-		if (isAllowed(config, toolName)) return undefined;
-
 		const target = deriveTarget(toolName, event.input);
 		if (isGranted(state, toolName, target.grantLevels)) return undefined;
 
+		const workspace = checkWorkspace(config.workspace, ctx.cwd, toolName, event.input);
+		const outside = workspace.outside && config.workspace.outside !== "allow";
+
+		if (modeApproves(state.mode, toolName, outside)) return undefined;
+		if (!outside && isAllowed(config, toolName)) return undefined;
+
 		if (
+			!outside &&
 			config.readOnlyBash &&
 			isToolCallEventType("bash", event) &&
 			isReadOnlyCommand(event.input.command)
@@ -65,13 +70,15 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 			return undefined;
 		}
 
-		const resolution = await runJudge(state, {
-			pi,
-			ctx,
-			toolName,
-			target,
-			rawInput: event.input,
-		});
+		if (outside && config.workspace.outside === "deny") {
+			return { block: true, reason: outsideReason(workspace.path) };
+		}
+
+		// A call that left the workspace goes straight to the dialog, so the judge never
+		// gets to approve it.
+		const resolution = outside
+			? undefined
+			: await runJudge(state, { pi, ctx, toolName, target, rawInput: event.input });
 		if (resolution?.block) return resolution.block;
 		if (resolution?.allow) return undefined;
 
@@ -207,6 +214,11 @@ async function ask(
 	}
 
 	return askViaSelector(ctx, toolName, target);
+}
+
+function outsideReason(path: string | undefined): string {
+	const where = path === undefined ? "" : ` (${shortenHome(path)})`;
+	return `${NAME}: outside the workspace${where}`;
 }
 
 function headlessRefusal(

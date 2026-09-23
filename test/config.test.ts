@@ -75,6 +75,30 @@ describe("decodeConfig", () => {
 		expect(warnings).toContain("yolo: removed, use mode and pick it per session; delete this key");
 	});
 
+	test("moves a persisted yolo mode to auto and warns", () => {
+		const warnings: string[] = [];
+		expect(decodeConfig({ mode: "yolo" }, warnings).mode).toBe("auto");
+		expect(warnings).toContain(
+			'mode "yolo" is gone, using "auto"; set workspace.outside to "allow" for the old reach',
+		);
+	});
+
+	test("reads a workspace block", () => {
+		const warnings: string[] = [];
+		expect(decodeConfig({ workspace: { roots: [".", "~/Projects"] } }, warnings).workspace).toEqual(
+			{ roots: [".", "~/Projects"], outside: "ask" },
+		);
+		expect(warnings).toEqual([]);
+	});
+
+	test("falls back on a bad workspace block", () => {
+		const warnings: string[] = [];
+		expect(
+			decodeConfig({ workspace: { roots: "~", outside: "maybe" } }, warnings).workspace,
+		).toEqual(DEFAULT_CONFIG.workspace);
+		expect(warnings).toHaveLength(2);
+	});
+
 	test("rejects an array where an object is expected", () => {
 		const warnings: string[] = [];
 		expect(decodeConfig({ allow: "bash" }, warnings).allow).toEqual(DEFAULT_CONFIG.allow);

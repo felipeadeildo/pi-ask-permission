@@ -1,4 +1,4 @@
-export const PERMISSION_MODES = ["manual", "accept-edits", "yolo"] as const;
+export const PERMISSION_MODES = ["manual", "accept-edits", "auto"] as const;
 
 export type PermissionMode = (typeof PERMISSION_MODES)[number];
 
@@ -10,14 +10,13 @@ export const EDIT_TOOLS: ReadonlySet<string> = new Set(["edit", "write"]);
 export const MODE_LABEL: Record<PermissionMode, string> = {
 	manual: "manual",
 	"accept-edits": "accept edits",
-	yolo: "yolo",
+	auto: "auto",
 };
 
 export const MODE_DESCRIPTION: Record<PermissionMode, string> = {
 	manual: "ask before anything the allow list, grants, and read-only bash do not cover",
-	"accept-edits":
-		"run file edits and writes without asking or judging; everything else keeps its rules",
-	yolo: "run every call without asking, for a throwaway run",
+	"accept-edits": "run file edits and writes in the workspace without asking",
+	auto: "run every call in the workspace without asking; outside follows workspace.outside",
 };
 
 export function isPermissionMode(value: unknown): value is PermissionMode {
@@ -39,8 +38,9 @@ export function nextMode(mode: PermissionMode): PermissionMode {
 	return PERMISSION_MODES[(index + 1) % PERMISSION_MODES.length] ?? DEFAULT_MODE;
 }
 
-export function modeApproves(mode: PermissionMode, toolName: string): boolean {
-	if (mode === "yolo") return true;
+export function modeApproves(mode: PermissionMode, toolName: string, outside: boolean): boolean {
+	if (outside) return false;
+	if (mode === "auto") return true;
 	if (mode === "accept-edits") return EDIT_TOOLS.has(toolName);
 	return false;
 }

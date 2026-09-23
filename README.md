@@ -70,17 +70,23 @@ The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level
 
 ## Session modes
 
-`Alt+M` cycles the session, and `/perm mode` does the same. `/perm mode yolo` sets one directly.
+`Alt+M` cycles the session, and `/perm mode` does the same. `/perm mode auto` sets one directly.
 
-| Mode           | Approves                                    |
-| -------------- | ------------------------------------------- |
-| `manual`       | nothing on its own; the normal gate decides |
-| `accept edits` | `edit` and `write`                          |
-| `yolo`         | every call                                  |
+| Mode           | In the workspace        | Outside it, with `ask`      |
+| -------------- | ----------------------- | --------------------------- |
+| `manual`       | the normal gate decides | asks                        |
+| `accept edits` | `edit` and `write`      | asks                        |
+| `auto`         | every call              | `workspace.outside` decides |
 
-Neither `accept edits` nor `yolo` consults the judge.
+A call that left the workspace never reaches the judge. `auto` does not consult it inside either.
 
-The mode is session state. `Alt+M` and `/perm mode` never write to `config.json`, so turning on `yolo` in one session does not affect another. The `mode` field in `config.json` only sets where the next session starts.
+The mode is session state. `Alt+M` and `/perm mode` never write to `config.json`, so turning on `auto` in one session does not affect another. The `mode` field in `config.json` only sets where the next session starts.
+
+## Workspace
+
+`workspace.roots` lists the paths the check treats as inside. It defaults to `["."]`, the project root, and takes absolute paths, relative ones, and `~`. Resolution is lexical, plus a `realpath` when the target exists, so a symlink out of the project does not count as inside.
+
+`workspace.outside` decides what happens when a call leaves those roots. `"ask"` sends it to you, without the judge. `"deny"` blocks it. `"allow"` turns the boundary off, and with `auto` that is the old yolo. A grant still wins, and an image pasted into the temp dir counts as inside.
 
 ## Read-only bash
 
@@ -134,10 +140,10 @@ Turn on `Dry run` to watch it decide without acting. Each decision shows up in t
 
 ### How the judge decides
 
-The judge answers a fixed set of atomic questions: a verdict, how reversible the call is, whether it touches secrets, and whether it leaves the project. Code combines the answers. There is no broad `is this safe?` prompt.
+The judge answers a fixed set of atomic questions: a verdict, how reversible the call is, and whether it touches secrets. Code combines the answers. There is no broad `is this safe?` prompt, and no question about the workspace, because code settles that one.
 
 ```text
-risk = 0.45 × reversibility + 0.30 × sensitive + 0.25 × outside
+risk = 0.60 × reversibility + 0.40 × sensitive
 ```
 
 A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, and `risk` is at or below `riskCeiling`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `onUncertain` says otherwise. The `never` list is checked in code first, so a call on it is never auto-approved.
@@ -146,7 +152,7 @@ The policy is authoritative and the tool call is treated as untrusted data, so a
 
 ### Settings
 
-These rows appear indented under `AI approvals (judge)` in `/perm`.
+`/perm` lists the mode, the workspace boundary, read-only bash, the followup wire, and the headless behavior. The judge rows appear indented under `AI approvals (judge)`.
 
 | Setting              | Does                                                                                               |
 | -------------------- | -------------------------------------------------------------------------------------------------- |
@@ -177,6 +183,7 @@ One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves
 	"followup": "result",
 	"mode": "manual",
 	"readOnlyBash": true,
+	"workspace": { "roots": ["."], "outside": "ask" },
 	"typing": { "pause": 1000, "maxWait": null }
 }
 ```
@@ -195,7 +202,7 @@ The file also carries the full `judge` block, disabled by default.
 
 `followup` chooses where an approval note goes. `"result"` appends it to the tool result the model is already reading. `"message"` sends it as its own steering message.
 
-`mode` is the mode a new session starts in. `"manual"` asks as usual, `"accept-edits"` runs file edits and writes without asking or judging, and `"yolo"` approves everything for a throwaway run. Change it from `/perm` or `Alt+M` and only the current session moves. Change it here and only the next session.
+`mode` is the mode a new session starts in. `"manual"` asks as usual, `"accept-edits"` runs file edits and writes inside the workspace, and `"auto"` runs everything inside it. Change it from `/perm` or `Alt+M` and only the current session moves. Change it here and only the next session.
 
 `typing` tunes the wait before the dialog opens. `pause` is the quiet time in milliseconds. `maxWait` caps the total wait, or `null` for no cap.
 
@@ -203,30 +210,31 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 
 ## Commands
 
-| Command               | Does                                                                     |
-| --------------------- | ------------------------------------------------------------------------ |
-| `/perm`               | settings dialog for the mode, followup wire, judge, and headless         |
-| `/perm mode`          | cycle the session mode (also `Alt+M`)                                    |
-| `/perm mode yolo`     | set the session mode (also `manual` and `accept-edits`)                  |
-| `/perm status`        | resolved config, grant counts per scope, and file paths                  |
-| `/perm judge`         | open the AI-approval settings                                            |
-| `/perm judge on`      | turn AI approvals on (also `off`)                                        |
-| `/perm judge log`     | the most recent judge decisions this session                             |
-| `/perm judge test`    | make one real judge request and report the model, latency, and any error |
-| `/perm reset`         | forget this session's grants                                             |
-| `/perm reset project` | delete the project grants file                                           |
-| `/perm reset global`  | delete the global grants file                                            |
-| `/perm reset all`     | clear all three scopes                                                   |
+| Command               | Does                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| `/perm`               | settings dialog for the mode, workspace, read-only bash, followup wire, judge, and headless |
+| `/perm mode`          | cycle the session mode (also `Alt+M`)                                                       |
+| `/perm mode auto`     | set the session mode (also `manual` and `accept-edits`)                                     |
+| `/perm status`        | resolved config, grant counts per scope, and file paths                                     |
+| `/perm judge`         | open the AI-approval settings                                                               |
+| `/perm judge on`      | turn AI approvals on (also `off`)                                                           |
+| `/perm judge log`     | the most recent judge decisions this session                                                |
+| `/perm judge test`    | make one real judge request and report the model, latency, and any error                    |
+| `/perm reset`         | forget this session's grants                                                                |
+| `/perm reset project` | delete the project grants file                                                              |
+| `/perm reset global`  | delete the global grants file                                                               |
+| `/perm reset all`     | clear all three scopes                                                                      |
 
 ## How a call is decided
 
-1. The mode approves it: `yolo` approves everything, `accept-edits` approves `edit` and `write` outright.
-2. The tool is in `allow`, allow.
-3. A grant matches this tool and level, allow.
+1. A grant matches this tool and level, allow.
+2. The mode approves it: `auto` approves everything in the workspace, `accept-edits` approves `edit` and `write` in it.
+3. The tool is in `allow`, allow.
 4. `readOnlyBash` is on and the bash command only reads, allow.
-5. AI approvals are on and the tool is judged, ask the judge. A confident allow runs, a confident deny blocks, and anything uncertain continues.
-6. There is a UI, ask.[^edit]
-7. There is no UI, `headless` decides. With `Judge with no UI` on, the judge gets the same first refusal first, then `headless` decides anything it could not.
+5. A call outside the workspace is not auto-approved. `workspace.outside` says whether it asks you directly or blocks.
+6. AI approvals are on and the tool is judged, ask the judge. A confident allow runs, a confident deny blocks, and anything uncertain continues.
+7. There is a UI, ask.[^edit]
+8. There is no UI, `headless` decides. With `Judge with no UI` on, the judge gets the same first refusal first, then `headless` decides anything it could not.
 
 [^edit]: An `edit` whose `oldText` cannot match the file is blocked with the matcher's own error, no dialog. Asking about an edit that is already going to fail only costs a keystroke.
 
@@ -240,11 +248,13 @@ A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`
 
 `accept edits` covers the built-in `edit` and `write` tools. A custom tool that writes files is not in that set, so it asks.
 
-The judge is a model. It narrows what reaches the dialog; it does not guarantee anything. A `never` pattern, a deterministic block, or an uncertain verdict still reaches you, and in `manual` the judge can only narrow. `yolo` and `accept edits` skip the judge for the tools they approve. The judge reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
+The judge is a model. It narrows what reaches the dialog; it does not guarantee anything. A `never` pattern, a deterministic block, or an uncertain verdict still reaches you, and in `manual` the judge can only narrow. `auto` and `accept edits` skip the judge for the tools they approve. The judge reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
+
+A bash command whose paths the check cannot read counts as outside. `$HOME`, `$SECRET`, and `"$@"` all ask for that reason.
 
 If you want deterministic rules with no human in the loop, this is the wrong tool.
 
-The read-only check is a classifier, not a sandbox. It matches the command name as written and does not resolve `PATH`, so a `cat` that is a different binary earlier on `PATH` passes the check and then runs. It refuses a name shadowed by an exported shell function, and `BASH_ENV` disables the check because that file can define functions. It also refuses anything it cannot prove harmless, so a few safe commands still ask. A loop is judged the same way: the word list has to be literal and the body has to read.
+The read-only check is a classifier, not a sandbox. It matches the command name as written and does not resolve `PATH`, so a `cat` that is a different binary earlier on `PATH` passes the check and then runs. It refuses a name shadowed by an exported shell function, and `BASH_ENV` disables the check because that file can define functions. It also refuses anything it cannot prove harmless, so a few safe commands still ask.
 
 ## Compatibility
 

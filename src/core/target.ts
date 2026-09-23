@@ -7,7 +7,7 @@ export interface CallDescriptor {
 	grantLevels: string[];
 }
 
-const FILE_TOOLS = new Set(["read", "write", "edit", "grep", "find", "ls"]);
+export const FILE_TOOLS = new Set(["read", "write", "edit", "grep", "find", "ls"]);
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const INPUT_SUMMARY_MAX = 400;
 

@@ -3,28 +3,22 @@ import type { JudgeConfig } from "#core/judge/config.ts";
 import type { JudgeAnswers } from "#core/judge/types.ts";
 
 export const RISK_WEIGHTS = {
-	reversibility: 0.45,
-	sensitive: 0.3,
-	outside: 0.25,
+	reversibility: 0.6,
+	sensitive: 0.4,
 } as const;
 
 export function neverMatches(config: JudgeConfig, values: string[]): boolean {
 	return config.never.some((pattern) => values.some((value) => matchesPattern(pattern, value)));
 }
 
+// The old 0.45 to 0.30 ratio, once the workspace term moves out.
 export function judgeRisk(answers: JudgeAnswers): number | undefined {
-	const { reversibility, sensitive_access, outside_workspace } = answers;
-	if (
-		reversibility === undefined ||
-		sensitive_access === undefined ||
-		outside_workspace === undefined
-	)
-		return undefined;
+	const { reversibility, sensitive_access } = answers;
+	if (reversibility === undefined || sensitive_access === undefined) return undefined;
 
 	return (
 		RISK_WEIGHTS.reversibility * clamp01(reversibility / 2) +
-		RISK_WEIGHTS.sensitive * clamp01(sensitive_access) +
-		RISK_WEIGHTS.outside * clamp01(outside_workspace)
+		RISK_WEIGHTS.sensitive * clamp01(sensitive_access)
 	);
 }
 

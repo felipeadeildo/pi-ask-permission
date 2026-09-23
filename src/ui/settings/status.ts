@@ -31,6 +31,7 @@ export function statusText(
 		`followup: ${config.followup} \u00b7 headless: ${headless}`,
 		`typing: pause ${config.typing.pause}ms \u00b7 maxWait ${config.typing.maxWait ?? "none"}`,
 		`readOnlyBash: ${config.readOnlyBash ? "on" : "off"}`,
+		`workspace: ${config.workspace.roots.join(", ")} \u00b7 outside: ${config.workspace.outside}`,
 		judgeLine(config),
 		`grants: ${GRANT_SCOPES.map((scope) => `${grants[scope].size} ${scope}`).join(" \u00b7 ")}`,
 		`project file: ${projectGrantsPath(cwd, CONFIG_DIR_NAME)}`,

@@ -179,7 +179,6 @@ export function toAnswers(raw: Record<string, unknown>): JudgeAnswers {
 		verdict: toVerdict(raw.verdict),
 		reversibility: toScore(raw.reversibility),
 		sensitive_access: toNoul(raw.sensitive_access),
-		outside_workspace: toNoul(raw.outside_workspace),
 	};
 }
 

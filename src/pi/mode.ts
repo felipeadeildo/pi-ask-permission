@@ -1,5 +1,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import type { OutsideScope } from "#core/config/schema.ts";
 import { MODE_DESCRIPTION, MODE_LABEL, type PermissionMode } from "#core/mode.ts";
 import { NAME } from "#identity";
 import type { SessionState } from "#pi/session.ts";
@@ -18,7 +19,7 @@ export function setSessionMode(
 	{ announce = true }: ModeChangeOptions = {},
 ): void {
 	state.mode = mode;
-	renderModeStatus(ctx, mode);
+	renderModeStatus(ctx, mode, state.config.workspace.outside);
 
 	if (announce) {
 		ctx.ui.notify(`${NAME}: ${MODE_LABEL[mode]} \u00b7 ${MODE_DESCRIPTION[mode]}`, "info");
@@ -30,15 +31,20 @@ export function clearModeStatus(ctx: ExtensionContext): void {
 	ctx.ui.setStatus(MODE_STATUS, undefined);
 }
 
-export function renderModeStatus(ctx: ExtensionContext, mode: PermissionMode): void {
+export function renderModeStatus(
+	ctx: ExtensionContext,
+	mode: PermissionMode,
+	outside: OutsideScope,
+): void {
 	if (mode === "manual") {
 		clearModeStatus(ctx);
 		return;
 	}
 	if (!ctx.hasUI) return;
 
-	const yolo = mode === "yolo";
-	const arrow = yolo ? "\u23f5\u23f5" : "\u23f5";
-	const color = yolo ? "error" : "warning";
-	ctx.ui.setStatus(MODE_STATUS, ctx.ui.theme.fg(color, `${arrow} ${MODE_LABEL[mode]}`));
+	const anywhere = outside === "allow";
+	const arrow = mode === "auto" ? "\u23f5\u23f5" : "\u23f5";
+	const color = anywhere ? "error" : "warning";
+	const label = anywhere ? `${MODE_LABEL[mode]} \u00b7 anywhere` : MODE_LABEL[mode];
+	ctx.ui.setStatus(MODE_STATUS, ctx.ui.theme.fg(color, `${arrow} ${label}`));
 }

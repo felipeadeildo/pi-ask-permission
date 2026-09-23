@@ -20,7 +20,6 @@ export interface JudgeAnswers {
 	verdict?: JudgeChoiceAnswer;
 	reversibility?: number;
 	sensitive_access?: number;
-	outside_workspace?: number;
 }
 
 export interface JudgeUsage {

@@ -155,7 +155,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 	});
 
 	pi.registerShortcut(Key.alt("m"), {
-		description: `${NAME}: cycle mode (manual, accept edits, yolo)`,
+		description: `${NAME}: cycle mode (manual, accept edits, auto)`,
 		handler: cycleMode,
 	});
 }

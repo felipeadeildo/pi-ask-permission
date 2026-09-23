@@ -59,14 +59,6 @@ export function buildJudgeQuestions(): Record<string, unknown> {
 				false: "Does not touch credentials, secrets, or private data.",
 			},
 		},
-		outside_workspace: {
-			type: "noul",
-			instructions: "Does `call` affect files or systems outside `project.root`?",
-			criteria: {
-				true: "Reaches outside the project root, or contacts a remote host.",
-				false: "Stays within the project root and the local machine.",
-			},
-		},
 	};
 }
 

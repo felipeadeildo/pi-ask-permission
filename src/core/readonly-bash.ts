@@ -228,6 +228,25 @@ export function isReadOnlyCommand(command: string, env: NodeJS.ProcessEnv = proc
 	return isReadOnlySegment(segment, env);
 }
 
+// A reference the classifier cannot see is not a literal: `cat$f` must not read as `cat`.
+// The name stays in the marker so the loop can put the value back.
+function markerFor(name: string): string {
+	return `${REFERENCE}${Buffer.from(name, "utf8").toString("base64url")}${REFERENCE}`;
+}
+
+function readReference(command: string, start: number): { end: number; name: string } | undefined {
+	const next = command[start + 1];
+	if (next === "{") {
+		const close = command.indexOf("}", start + 2);
+		return close < 0 ? undefined : { end: close + 1, name: command.slice(start + 2, close) };
+	}
+	if (!/[A-Za-z0-9_@*#?$!-]/.test(next ?? "")) return undefined;
+
+	let end = start + 2;
+	while (/[A-Za-z0-9_]/.test(command[end] ?? "")) end++;
+	return { end, name: command.slice(start + 1, end) };
+}
+
 // A newline is whitespace only where a list can continue, which the classifier does
 // not model. Every newline becomes a separator and readLoop absorbs the extras.
 function normalizeCommand(command: string): string | undefined {
@@ -282,13 +301,11 @@ function normalizeCommand(command: string): string | undefined {
 			continue;
 		}
 
-		// shell-quote drops a reference it cannot expand, leaving `"cat$f"` to read as
-		// `cat` and `-"$f"` as `-`. The marker keeps the reference in the word.
 		if (char === "$") {
-			const end = referenceEnd(command, index);
-			if (end !== undefined) {
-				out += REFERENCE;
-				index = end - 1;
+			const reference = readReference(command, index);
+			if (reference !== undefined) {
+				out += markerFor(reference.name);
+				index = reference.end - 1;
 				continue;
 			}
 		}
@@ -305,20 +322,6 @@ function startsWord(text: string): boolean {
 	return last === undefined || /[\s;&|()<>]/.test(last);
 }
 
-// Returns the index one past the reference, or undefined for a `$` that expands to
-// something the classifier already refuses.
-function referenceEnd(command: string, start: number): number | undefined {
-	if (command[start + 1] === "{") {
-		const close = command.indexOf("}", start + 2);
-		return close < 0 ? undefined : close + 1;
-	}
-	if (!/[A-Za-z0-9_@*#?$!-]/.test(command[start + 1] ?? "")) return undefined;
-
-	let end = start + 2;
-	while (/[A-Za-z0-9_]/.test(command[end] ?? "")) end++;
-	return end;
-}
-
 function startsSegment(tokens: ParseEntry[], index: number): boolean {
 	if (index === 0) return true;
 	if (tokens[index - 1] === "do") return true;
@@ -332,13 +335,13 @@ function isSemicolon(entry: ParseEntry | undefined): boolean {
 }
 
 interface Loop {
+	name: string;
 	words: string[];
 	body: ParseEntry[];
 	end: number;
 }
 
-// The body reads the same for every word, so unrolling is what puts it through the
-// segment walk.
+// The value goes back into the body, so the flags and the workspace see what will run.
 function expandLoops(tokens: ParseEntry[], depth = 0): ParseEntry[] | undefined {
 	if (depth > LOOP_DEPTH_LIMIT) return undefined;
 
@@ -356,10 +359,14 @@ function expandLoops(tokens: ParseEntry[], depth = 0): ParseEntry[] | undefined 
 			if (body === undefined) return undefined;
 
 			// A list that reads as empty still has to face the check.
+			const marker = markerFor(loop.name);
 			const copies = Math.max(loop.words.length, 1);
 			for (let copy = 0; copy < copies; copy++) {
 				if (copy > 0) expanded.push({ op: ";" });
-				expanded.push(...body);
+				const word = loop.words[copy];
+				for (const entry of body) {
+					expanded.push(word === undefined ? entry : substitute(entry, marker, word));
+				}
 			}
 			if (expanded.length > LOOP_TOKEN_LIMIT) return undefined;
 
@@ -372,6 +379,43 @@ function expandLoops(tokens: ParseEntry[], depth = 0): ParseEntry[] | undefined 
 	}
 
 	return expanded;
+}
+
+function substitute(token: ParseEntry, marker: string, word: string): ParseEntry {
+	if (typeof token === "string") return token.replaceAll(marker, word);
+	return "pattern" in token ? { ...token, pattern: token.pattern.replaceAll(marker, word) } : token;
+}
+
+/** The literal words of a command, loop variables resolved. Undefined when a reference
+ * or a construct cannot be read. */
+export function commandWords(
+	command: string,
+	env: NodeJS.ProcessEnv = process.env,
+): string[] | undefined {
+	if (env.BASH_ENV) return undefined;
+	if (hasCommandSubstitution(command)) return undefined;
+
+	const normalized = normalizeCommand(command);
+	if (normalized === undefined) return undefined;
+
+	let tokens: ParseEntry[];
+	try {
+		tokens = parse(normalized);
+	} catch {
+		return undefined;
+	}
+
+	const expanded = expandLoops(tokens);
+	if (expanded === undefined) return undefined;
+
+	const words: string[] = [];
+	for (const token of expanded) {
+		const word = typeof token === "string" ? token : "pattern" in token ? token.pattern : undefined;
+		if (word === undefined) continue;
+		if (word.includes(REFERENCE)) return undefined;
+		words.push(word);
+	}
+	return words;
 }
 
 function readLoop(tokens: ParseEntry[], start: number): Loop | undefined {
@@ -387,7 +431,7 @@ function readLoop(tokens: ParseEntry[], start: number): Loop | undefined {
 	index++;
 
 	const words: string[] = [];
-	// bash reserves `do` only where a separator opened the position.
+	// Bash reserves `do` only where a separator opened the position.
 	while (index < tokens.length) {
 		const token = tokens[index];
 		if (token === "do" && startsSegment(tokens, index)) break;
@@ -424,7 +468,7 @@ function readLoop(tokens: ParseEntry[], start: number): Loop | undefined {
 
 	if (tokens[index] !== "done") return undefined;
 
-	return { words, body: trimSeparators(body), end: index + 1 };
+	return { name, words, body: trimSeparators(body), end: index + 1 };
 }
 
 function loopWord(entry: ParseEntry | undefined): string | undefined {

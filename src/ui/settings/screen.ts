@@ -1,7 +1,13 @@
 import { type ExtensionContext, getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import { Container, type SettingItem, SettingsList, Text } from "@earendil-works/pi-tui";
 
-import { isFollowupDelivery, isHeadlessMode, type PermissionConfig } from "#core/config/schema.ts";
+import {
+	isFollowupDelivery,
+	isHeadlessMode,
+	isOutsideScope,
+	type OutsideScope,
+	type PermissionConfig,
+} from "#core/config/schema.ts";
 import { type GrantScope, GRANT_SCOPES } from "#core/grants.ts";
 import { POLICY_TEMPLATE, policyWarning } from "#core/judge/policy.ts";
 import { MODE_LABEL, modeFromLabel, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
@@ -62,7 +68,7 @@ async function editModel(ctx: ExtensionContext, state: SettingsState): Promise<v
 	state.onJudgeChange();
 }
 
-const SETTINGS_VISIBLE = 16;
+const SETTINGS_VISIBLE = 18;
 
 async function showSettings(ctx: ExtensionContext, state: SettingsState): Promise<SettingsRequest> {
 	let request: SettingsRequest;
@@ -97,13 +103,7 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 				? judgeSettings.items.map((item) => ({ ...item, label: `  ${item.label}` }))
 				: [];
 
-			return [
-				modeItem(state.mode()),
-				followupItem(state.config),
-				judgeToggleItem(state.config),
-				...children,
-				headlessItem(state.config),
-			];
+			return topLevelItems(state.config, state.mode(), children);
 		};
 
 		const install = (focusId: string): void => {
@@ -143,11 +143,21 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 				// Session-only: the mode never reaches config.json, so it cannot leak into other sessions.
 				const mode = modeFromLabel(value);
 				if (mode) state.setMode(mode);
+				install("mode");
+				return;
+			}
+
+			if (id === "workspace.outside" && isOutsideScope(value)) {
+				state.config.workspace.outside = value;
+				state.save();
+				// The status bar spells out `auto \u00b7 anywhere`, so it moves with this row.
+				state.setMode(state.mode());
 				return;
 			}
 
 			if (id === "followup" && isFollowupDelivery(value)) state.config.followup = value;
 			else if (id === "headless" && isHeadlessMode(value)) state.config.headless = value;
+			else if (id === "readOnlyBash") state.config.readOnlyBash = value === "on";
 			state.save();
 		};
 
@@ -171,6 +181,18 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 	return request;
 }
 
+export function topLevelItems(
+	config: PermissionConfig,
+	mode: PermissionMode,
+	judgeChildren: SettingItem[],
+): SettingItem[] {
+	const items = [modeItem(mode), outsideItem(config), followupItem(config)];
+	// `auto` approves everything inside the workspace before the read-only check runs.
+	if (mode !== "auto") items.push(readOnlyBashItem(config));
+
+	return [...items, judgeToggleItem(config), ...judgeChildren, headlessItem(config)];
+}
+
 function followupItem(config: PermissionConfig): SettingItem {
 	return {
 		id: "followup",
@@ -178,6 +200,33 @@ function followupItem(config: PermissionConfig): SettingItem {
 		currentValue: config.followup,
 		values: ["result", "message"],
 		description: "Where a note attached to an approval reaches the model",
+	};
+}
+
+export function outsideItem(config: PermissionConfig): SettingItem {
+	const outside = config.workspace.outside;
+	return {
+		id: "workspace.outside",
+		label: "Outside the workspace",
+		currentValue: outside,
+		values: ["ask", "deny", "allow"],
+		description: OUTSIDE_DESCRIPTION[outside],
+	};
+}
+
+const OUTSIDE_DESCRIPTION: Record<OutsideScope, string> = {
+	ask: "A call that leaves workspace.roots comes straight to you, and skips the judge",
+	deny: "A call that leaves workspace.roots is blocked, with no dialog",
+	allow: "The boundary is off. With mode auto, every call runs anywhere, which is the old yolo",
+};
+
+export function readOnlyBashItem(config: PermissionConfig): SettingItem {
+	return {
+		id: "readOnlyBash",
+		label: "Read-only bash",
+		currentValue: config.readOnlyBash ? "on" : "off",
+		values: ["off", "on"],
+		description: "A read-only command that stays in the workspace runs without a prompt",
 	};
 }
 
@@ -209,7 +258,8 @@ export function modeItem(mode: PermissionMode): SettingItem {
 		label: "Mode (this session)",
 		currentValue: MODE_LABEL[mode],
 		values: PERMISSION_MODES.map((entry) => MODE_LABEL[entry]),
-		description: "manual asks, accept edits runs file writes, yolo runs everything",
+		description:
+			"manual asks, accept edits runs file writes, auto runs everything in the workspace; Outside decides the rest",
 	};
 }
 

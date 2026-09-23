@@ -2,11 +2,17 @@ import { describe, expect, test } from "bun:test";
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
-import { DEFAULT_CONFIG } from "#core/config/schema.ts";
+import { DEFAULT_CONFIG, defaultConfig } from "#core/config/schema.ts";
 import { defaultJudge } from "#core/judge/config.ts";
-import { MODE_LABEL, PERMISSION_MODES } from "#core/mode.ts";
+import { MODE_LABEL, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
 import { buildJudgeSettings, JUDGE_SETTING_IDS, judgeValues } from "#ui/settings/judge.ts";
-import { judgeToggleItem, modeItem } from "#ui/settings/screen.ts";
+import {
+	judgeToggleItem,
+	modeItem,
+	outsideItem,
+	readOnlyBashItem,
+	topLevelItems,
+} from "#ui/settings/screen.ts";
 
 function judgeScreen(): ReturnType<typeof buildJudgeSettings> {
 	return buildJudgeSettings({
@@ -73,5 +79,38 @@ describe("settings layout", () => {
 			expect(item.values).toContain(item.currentValue);
 			expect(item.currentValue).toBe(MODE_LABEL[mode]);
 		}
+	});
+
+	test("the workspace row offers every scope and marks the config", () => {
+		for (const outside of ["ask", "deny", "allow"] as const) {
+			const config = defaultConfig();
+			config.workspace.outside = outside;
+			const item = outsideItem(config);
+
+			expect(item.values).toEqual(["ask", "deny", "allow"]);
+			expect(item.currentValue).toBe(outside);
+			expect(item.description).toBeTruthy();
+		}
+	});
+
+	test("the read-only row marks the config", () => {
+		expect(readOnlyBashItem(defaultConfig()).currentValue).toBe("on");
+		expect(readOnlyBashItem({ ...defaultConfig(), readOnlyBash: false }).currentValue).toBe("off");
+	});
+
+	test("the read-only row hides under auto, where nothing consults it", () => {
+		const ids = (mode: PermissionMode) =>
+			topLevelItems(defaultConfig(), mode, []).map((item) => item.id);
+
+		expect(ids("manual")).toContain("readOnlyBash");
+		expect(ids("accept-edits")).toContain("readOnlyBash");
+		expect(ids("auto")).not.toContain("readOnlyBash");
+		expect(ids("auto")).toEqual([
+			"mode",
+			"workspace.outside",
+			"followup",
+			"judge.enabled",
+			"headless",
+		]);
 	});
 });

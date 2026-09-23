@@ -32,7 +32,6 @@ function answers(overrides: Partial<JudgeAnswers> = {}): JudgeAnswers {
 		verdict: { choice: "allow", confidence: 0.95 },
 		reversibility: 0.2,
 		sensitive_access: 0.05,
-		outside_workspace: 0.1,
 		...overrides,
 	};
 }
@@ -56,7 +55,10 @@ describe("composeVerdict", () => {
 	test("approves a confident, low-risk call", () => {
 		const result = composeVerdict(defaultJudge(), answers());
 		expect(result.decision).toBe("allow");
-		expect(result.risk).toBeCloseTo(0.45 * 0.1 + 0.3 * 0.05 + 0.25 * 0.1, 5);
+		expect(result.risk).toBeCloseTo(
+			RISK_WEIGHTS.reversibility * 0.1 + RISK_WEIGHTS.sensitive * 0.05,
+			5,
+		);
 	});
 
 	test("denies a confident denial", () => {
@@ -103,8 +105,8 @@ describe("composeVerdict", () => {
 
 describe("judgeRisk", () => {
 	test("weights each signal", () => {
-		expect(judgeRisk({ reversibility: 2, sensitive_access: 1, outside_workspace: 1 })).toBeCloseTo(
-			RISK_WEIGHTS.reversibility + RISK_WEIGHTS.sensitive + RISK_WEIGHTS.outside,
+		expect(judgeRisk({ reversibility: 2, sensitive_access: 1 })).toBeCloseTo(
+			RISK_WEIGHTS.reversibility + RISK_WEIGHTS.sensitive,
 			5,
 		);
 	});
@@ -147,12 +149,7 @@ describe("buildJudgeState", () => {
 describe("buildJudgeQuestions", () => {
 	test("asks the fixed battery", () => {
 		const questions = buildJudgeQuestions();
-		expect(Object.keys(questions)).toEqual([
-			"verdict",
-			"reversibility",
-			"sensitive_access",
-			"outside_workspace",
-		]);
+		expect(Object.keys(questions)).toEqual(["verdict", "reversibility", "sensitive_access"]);
 	});
 });
 
@@ -179,7 +176,6 @@ describe("parseJevResponse", () => {
 					verdict: { type: "choice", choice: "allow", confidence: 0.9 },
 					reversibility: { type: "score", score: 1.5 },
 					sensitive_access: { type: "noul", noul: 0.1 },
-					outside_workspace: { type: "noul", noul: 0.2 },
 				},
 				usage: { input_tokens: 300, output_tokens: 12 },
 			},
@@ -487,7 +483,6 @@ describe("pi model parsing", () => {
 			confidence: 0.8,
 			reversibility: 1,
 			sensitive_access: 0.1,
-			outside_workspace: 0.2,
 		});
 		expect(mapped.verdict).toEqual({ choice: "allow", confidence: 0.8 });
 		expect(mapped.reversibility).toBe(1);
@@ -527,7 +522,7 @@ function allowMessage(): unknown {
 		content: [
 			{
 				type: "text",
-				text: '{"verdict":"allow","confidence":0.99,"reversibility":0.1,"sensitive_access":0,"outside_workspace":0}',
+				text: '{"verdict":"allow","confidence":0.99,"reversibility":0.1,"sensitive_access":0}',
 			},
 		],
 		stopReason: "stop",
@@ -583,13 +578,10 @@ describe("judge report", () => {
 			answers: {
 				reversibility: 0.2,
 				sensitive_access: 0,
-				outside_workspace: 0.1,
 			},
 		};
 
-		expect(judgeSignalText(record)).toBe(
-			"reversibility 0.20 \u00b7 sensitive 0.00 \u00b7 outside 0.10",
-		);
+		expect(judgeSignalText(record)).toBe("reversibility 0.20 \u00b7 sensitive 0.00");
 	});
 });
 
