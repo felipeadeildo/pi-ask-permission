@@ -10,7 +10,6 @@ import {
 } from "#core/config/store.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
 import type { PermissionMode } from "#core/mode.ts";
-import { createToolRegistry, type ToolRegistry } from "#core/tools.ts";
 import { NAME } from "#identity";
 import { record } from "#pi/session-entries.ts";
 import { TypingMonitor } from "#ui/typing.ts";
@@ -20,13 +19,11 @@ const JUDGE_RETRY_MS = 60_000;
 
 export interface JudgeHealth {
 	failures: number;
-
 	retryAt: number;
 }
 
 export interface SessionState {
 	config: PermissionConfig;
-	/** Effective mode for this session; `config.mode` is only the on-disk default. */
 	mode: PermissionMode;
 	configFile: string;
 	configWarnings: string[];
@@ -37,7 +34,6 @@ export interface SessionState {
 	judgeWarned: Set<string>;
 	judgeHealth: JudgeHealth;
 	typing: TypingMonitor;
-	tools: ToolRegistry;
 }
 
 export function createSession(): SessionState {
@@ -55,7 +51,6 @@ export function createSession(): SessionState {
 		judgeWarned: new Set(),
 		judgeHealth: { failures: 0, retryAt: 0 },
 		typing: new TypingMonitor(loaded.config.typing.pause, loaded.config.typing.maxWait),
-		tools: createToolRegistry(),
 	};
 }
 

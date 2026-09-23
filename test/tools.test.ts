@@ -4,14 +4,14 @@ import {
 	asToolInput,
 	type CallDescriptor,
 	commandLevels,
-	createToolRegistry,
 	pathLevels,
 	shortenHome,
 	tokenize,
+	toolAdapter,
 } from "#core/tools.ts";
 
 function describeCall(toolName: string, input: unknown): CallDescriptor {
-	return createToolRegistry().get(toolName).describe(asToolInput(input));
+	return toolAdapter(toolName).describe(asToolInput(input));
 }
 
 describe("commandLevels", () => {
@@ -116,34 +116,16 @@ describe("shortenHome", () => {
 
 describe("tool adapters", () => {
 	test("edit and write are edits, bash is not", () => {
-		const tools = createToolRegistry();
-		expect(tools.get("edit").edits).toBe(true);
-		expect(tools.get("write").edits).toBe(true);
-		expect(tools.get("bash").edits).toBeUndefined();
+		expect(toolAdapter("edit").edits).toBe(true);
+		expect(toolAdapter("write").edits).toBe(true);
+		expect(toolAdapter("bash").edits).toBeUndefined();
 	});
 
-	test("powershell paths cannot be read, so every call counts as outside", () => {
-		expect(createToolRegistry().get("powershell").paths({ command: "ls" })).toBeUndefined();
+	test("powershell paths cannot be read", () => {
+		expect(toolAdapter("powershell").paths({ command: "ls" })).toBeUndefined();
 	});
 
 	test("an unknown tool has no paths", () => {
-		expect(
-			createToolRegistry()
-				.get("todo")
-				.paths({ items: [1] }),
-		).toEqual([]);
-	});
-
-	test("a registered adapter replaces the built-in until it is removed", () => {
-		const tools = createToolRegistry();
-		const remove = tools.register("todo", {
-			describe: () => ({ summary: "todo", levels: ["todo"] }),
-			paths: () => undefined,
-			edits: true,
-		});
-
-		expect(tools.get("todo").edits).toBe(true);
-		remove();
-		expect(tools.get("todo").edits).toBeUndefined();
+		expect(toolAdapter("todo").paths({ items: [1] })).toEqual([]);
 	});
 });

@@ -12,7 +12,6 @@ import {
 	type Call,
 	decide,
 	describeCall,
-	type GateState,
 	gateLayers,
 	type Layer,
 	type Verdict,
@@ -61,9 +60,9 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 
 	pi.on("tool_call", async (event, ctx) => {
 		const { config } = state;
-		const call = describeCall(state.tools, event.toolName, event.input, ctx.cwd, config);
-		const layers = [...gateLayers(gateState(state)), judgeLayer(state, pi, ctx)];
-		const decision = await decide(call, layers);
+		const call = describeCall(event.toolName, event.input, ctx.cwd, config);
+		const judge: Layer = { name: "judge", decide: (next) => runJudge(state, pi, ctx, next) };
+		const decision = await decide(call, [...gateLayers(state), judge]);
 
 		if (decision.action === "allow") return undefined;
 		if (decision.action === "block") return { block: true, reason: decision.reason };
@@ -111,18 +110,6 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		state.pendingNotes.delete(event.toolCallId);
 		return { content: [...event.content, { type: "text", text: noteBlock(note) }] };
 	});
-}
-
-function gateState(state: SessionState): GateState {
-	return {
-		config: state.config,
-		mode: state.mode,
-		hasAlwaysYes: (toolName, levels) => state.alwaysYes.has(toolName, levels),
-	};
-}
-
-function judgeLayer(state: SessionState, pi: ExtensionAPI, ctx: ExtensionContext): Layer {
-	return { name: "judge", decide: (call) => runJudge(state, pi, ctx, call) };
 }
 
 async function runJudge(
@@ -194,7 +181,7 @@ async function ask(
 			);
 			if (answer) return answer;
 		} catch {
-			// Fall through to the plain selector rather than failing the call open.
+			// The plain selector, not an open gate.
 		}
 	}
 

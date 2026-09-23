@@ -66,7 +66,7 @@ The narrowest level is preselected, so `enter` remembers exactly what was on scr
 | this project | `<project>/.pi/extensions/pi-ask-permission/always-yes.json` | reloads and new sessions |
 | everywhere   | `~/.pi/agent/extensions/pi-ask-permission/always-yes.json`   | everything               |
 
-The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level, so always yes for `bash` never covers `write`. The project file loads only in a trusted project. Saving adds to what is on disk, so two pi sessions open at once keep each other's entries. A `grants.json` from before 3.0 is renamed on first load.
+The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level, so always yes for `bash` never covers `write`. The project file loads only in a trusted project. An old `grants.json` is renamed on first load.
 
 ## Session modes
 
@@ -80,7 +80,7 @@ The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level
 
 A call that left the workspace never reaches the judge. `auto` does not consult it inside either.
 
-The mode belongs to the session. `Alt+M` and `/perm mode` never write to `config.json`, so turning on `auto` in one session does not affect another. The session file keeps it, so a reload or a resume comes back in the same mode, and a fork or a `/tree` jump takes the mode of the branch it lands on. The `mode` field in `config.json` only sets where a new session starts.
+The mode belongs to the session, and survives a reload or a resume. `Alt+M` never touches `config.json`, whose `mode` only sets where a new session starts.
 
 ## Workspace
 

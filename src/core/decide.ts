@@ -1,3 +1,4 @@
+import type { AlwaysYes } from "#core/always-yes.ts";
 import { isAllowed } from "#core/config/patterns.ts";
 import type { OutsideScope, PermissionConfig } from "#core/config/schema.ts";
 import { modeApproves, type PermissionMode } from "#core/mode.ts";
@@ -6,8 +7,8 @@ import {
 	type CallDescriptor,
 	shortenHome,
 	type ToolAdapter,
+	toolAdapter,
 	type ToolInput,
-	type ToolRegistry,
 } from "#core/tools.ts";
 import { checkWorkspace } from "#core/workspace.ts";
 import { NAME } from "#identity";
@@ -36,20 +37,19 @@ export interface Layer {
 export interface GateState {
 	config: PermissionConfig;
 	mode: PermissionMode;
-	hasAlwaysYes(toolName: string, levels: string[]): boolean;
+	alwaysYes: Pick<AlwaysYes, "has">;
 }
 
 const ALLOW: Verdict = { action: "allow" };
 
 export function describeCall(
-	tools: ToolRegistry,
 	toolName: string,
 	rawInput: unknown,
 	cwd: string,
 	config: PermissionConfig,
 ): Call {
 	const input = asToolInput(rawInput);
-	const tool = tools.get(toolName);
+	const tool = toolAdapter(toolName);
 	const call: Call = { toolName, input, tool, target: tool.describe(input), outside: false };
 	if (config.workspace.outside === "allow") return call;
 
@@ -61,7 +61,8 @@ export function gateLayers(state: GateState): Layer[] {
 	return [
 		{
 			name: "always yes",
-			decide: (call) => (state.hasAlwaysYes(call.toolName, call.target.levels) ? ALLOW : undefined),
+			decide: (call) =>
+				state.alwaysYes.has(call.toolName, call.target.levels) ? ALLOW : undefined,
 		},
 		{
 			name: "workspace",

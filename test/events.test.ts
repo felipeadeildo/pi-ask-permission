@@ -7,7 +7,6 @@ import type { DialogAnswer } from "#core/answer.ts";
 import { defaultConfig } from "#core/config/schema.ts";
 import type { OutsideScope } from "#core/config/schema.ts";
 import type { PermissionMode } from "#core/mode.ts";
-import { createToolRegistry } from "#core/tools.ts";
 import { registerEvents } from "#pi/events.ts";
 import type { SessionState } from "#pi/session.ts";
 
@@ -52,7 +51,6 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 		judgeLog: [],
 		judgeWarned: new Set<string>(),
 		judgeHealth: { failures: 0, retryAt: 0 },
-		tools: createToolRegistry(),
 		typing: {
 			start: () => {},
 			stop: () => {},

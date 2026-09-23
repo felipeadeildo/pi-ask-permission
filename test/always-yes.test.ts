@@ -81,13 +81,6 @@ describe("always yes", () => {
 		expect(alwaysYes.has("bash", ["git"])).toBe(false);
 	});
 
-	test("opening a session starts this session empty", () => {
-		const alwaysYes = opened();
-		alwaysYes.add("session", "bash", "git");
-		alwaysYes.open({ global, project });
-		expect(alwaysYes.has("bash", ["git"])).toBe(false);
-	});
-
 	test("this session is never written to disk", () => {
 		opened().add("session", "bash", "git");
 		expect(existsSync(global)).toBe(false);

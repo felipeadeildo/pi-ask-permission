@@ -25,7 +25,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 			config: state.config,
 			alwaysYes: state.alwaysYes,
 			mode: () => state.mode,
-			setMode: (mode) => setSessionMode(pi, state, mode, ctx, { announce: false }),
+			setMode: (mode) => setSessionMode(pi, state, mode, ctx, false),
 			save: () => saveConfigFile(state, ctx),
 			onJudgeChange: () => state.judgeCache.clear(),
 		});

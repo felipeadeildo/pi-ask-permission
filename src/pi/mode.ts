@@ -8,17 +8,12 @@ import type { SessionState } from "#pi/session.ts";
 
 export const MODE_STATUS = `${NAME}:mode`;
 
-interface ModeChangeOptions {
-	/** Announce the change; off when the settings list already shows the row. */
-	announce?: boolean;
-}
-
 export function setSessionMode(
 	pi: ExtensionAPI,
 	state: SessionState,
 	mode: PermissionMode,
 	ctx: ExtensionContext,
-	{ announce = true }: ModeChangeOptions = {},
+	announce = true,
 ): void {
 	if (mode !== state.mode) record(pi, { kind: "mode", mode });
 	state.mode = mode;

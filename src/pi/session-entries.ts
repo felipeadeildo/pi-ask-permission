@@ -5,8 +5,6 @@ import { NAME } from "#identity";
 import type { SessionState } from "#pi/session.ts";
 import { isRecord } from "#util/primitives.ts";
 
-// The mode and this session's always yes live in the session file, so a reload or a
-// resume keeps them, and a fork or a /tree jump sees only its own branch.
 export const SESSION_ENTRY = `${NAME}:session`;
 
 export type SessionEntry =
@@ -14,7 +12,7 @@ export type SessionEntry =
 	| { kind: "always-yes"; toolName: string; level: string }
 	| { kind: "forget-always-yes" };
 
-export interface SessionSnapshot {
+interface SessionSnapshot {
 	mode: PermissionMode;
 	alwaysYes: { toolName: string; level: string }[];
 }
@@ -53,7 +51,6 @@ export function restoreSession(state: SessionState, ctx: ExtensionContext): void
 	}
 }
 
-// Written by older versions or edited by hand, so every field is checked.
 function sessionEntry(item: unknown): SessionEntry | undefined {
 	if (!isRecord(item) || item.type !== "custom" || item.customType !== SESSION_ENTRY) {
 		return undefined;

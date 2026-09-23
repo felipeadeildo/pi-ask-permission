@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { DEFAULT_WORKSPACE, type WorkspaceConfig } from "#core/config/schema.ts";
-import { asToolInput, createToolRegistry } from "#core/tools.ts";
+import { asToolInput, toolAdapter } from "#core/tools.ts";
 import { checkWorkspace, resolveRoots } from "#core/workspace.ts";
 
 function workspace(overrides: Partial<WorkspaceConfig> = {}): WorkspaceConfig {
@@ -142,7 +142,7 @@ function outcome(
 	input: unknown,
 	config: WorkspaceConfig = workspace(),
 ): { outside: boolean } {
-	const paths = createToolRegistry().get(toolName).paths(asToolInput(input));
+	const paths = toolAdapter(toolName).paths(asToolInput(input));
 	const verdict = checkWorkspace(config, root, paths);
 	return verdict.path === undefined ? { outside: verdict.outside } : verdict;
 }

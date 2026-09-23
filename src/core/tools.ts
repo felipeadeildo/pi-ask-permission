@@ -18,11 +18,6 @@ export interface ToolAdapter {
 	readOnly?(input: ToolInput): boolean;
 }
 
-export interface ToolRegistry {
-	get(toolName: string): ToolAdapter;
-	register(toolName: string, adapter: ToolAdapter): () => void;
-}
-
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const INPUT_SUMMARY_MAX = 400;
 
@@ -64,25 +59,13 @@ const BUILT_IN: Record<string, ToolAdapter> = {
 	mcp,
 };
 
-export function createToolRegistry(): ToolRegistry {
-	const adapters = new Map(Object.entries(BUILT_IN));
-
-	return {
-		get: (toolName) => adapters.get(toolName) ?? fallback(toolName),
-		register(toolName, adapter) {
-			adapters.set(toolName, adapter);
-			return () => {
-				if (adapters.get(toolName) === adapter) adapters.delete(toolName);
-			};
-		},
-	};
-}
-
-function fallback(toolName: string): ToolAdapter {
-	return {
-		describe: (input) => ({ summary: summarizeInput(input), levels: [toolName] }),
-		paths: () => [],
-	};
+export function toolAdapter(toolName: string): ToolAdapter {
+	return (
+		BUILT_IN[toolName] ?? {
+			describe: (input) => ({ summary: summarizeInput(input), levels: [toolName] }),
+			paths: () => [],
+		}
+	);
 }
 
 export function asToolInput(input: unknown): ToolInput {

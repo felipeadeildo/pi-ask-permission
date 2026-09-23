@@ -37,7 +37,6 @@ export class AlwaysYes {
 
 	open(files: AlwaysYesFiles): string[] {
 		this.files = files;
-		this.levels.session.clear();
 		const warnings: string[] = [];
 		for (const scope of SAVED_SCOPES) {
 			const path = files[scope];
@@ -67,7 +66,7 @@ export class AlwaysYes {
 		return SCOPES.reduce((sum, scope) => sum + this.size(scope), 0);
 	}
 
-	/** Returns why it could not be saved. It still holds for this run. */
+	/** Returns why it was not saved. It still holds until pi exits. */
 	add(scope: Scope, toolName: string, level: string): string | undefined {
 		const key = keyOf(toolName, level);
 		this.levels[scope].add(key);

@@ -3,12 +3,11 @@ import { describe, expect, test } from "bun:test";
 import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
 import { decide, describeCall, type GateState, gateLayers, type Layer } from "#core/decide.ts";
 import type { PermissionMode } from "#core/mode.ts";
-import { createToolRegistry } from "#core/tools.ts";
 
 const CWD = "/repo";
 
 function gate(overrides: Partial<GateState> = {}): GateState {
-	return { config: defaultConfig(), mode: "manual", hasAlwaysYes: () => false, ...overrides };
+	return { config: defaultConfig(), mode: "manual", alwaysYes: { has: () => false }, ...overrides };
 }
 
 async function decidedBy(
@@ -17,7 +16,7 @@ async function decidedBy(
 	state: GateState = gate(),
 	extra: Layer[] = [],
 ): Promise<string | undefined> {
-	const call = describeCall(createToolRegistry(), toolName, input, CWD, state.config);
+	const call = describeCall(toolName, input, CWD, state.config);
 	const decision = await decide(call, [...gateLayers(state), ...extra]);
 	return decision.by;
 }
@@ -29,7 +28,7 @@ function withOutside(outside: PermissionConfig["workspace"]["outside"]): Permiss
 
 describe("decide", () => {
 	test("always yes wins before anything else", async () => {
-		const state = gate({ hasAlwaysYes: () => true });
+		const state = gate({ alwaysYes: { has: () => true } });
 		expect(await decidedBy("bash", { command: "cat /etc/passwd" }, state)).toBe("always yes");
 	});
 

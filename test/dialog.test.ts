@@ -5,7 +5,7 @@ import { CURSOR_MARKER, type KeybindingsManager, visibleWidth } from "@earendil-
 
 import type { Scope } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
-import { asToolInput, createToolRegistry } from "#core/tools.ts";
+import { asToolInput, toolAdapter } from "#core/tools.ts";
 import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
 import { AskDialog } from "#ui/dialog.ts";
 
@@ -29,7 +29,7 @@ function open(toolName = "bash", input: unknown = { command: "git status --short
 	const dialog = new AskDialog({
 		theme,
 		toolName,
-		target: createToolRegistry().get(toolName).describe(asToolInput(input)),
+		target: toolAdapter(toolName).describe(asToolInput(input)),
 		keybindings: NO_PASTE,
 		requestRender: () => {
 			renders++;
