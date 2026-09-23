@@ -2,7 +2,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { type AlwaysYes, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
 import type { PermissionConfig } from "#core/config/schema.ts";
-import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
+import { configPath, globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
 import { policyWarning } from "#core/judge/policy.ts";
 import { MODE_LABEL, type PermissionMode } from "#core/mode.ts";
 import { NAME } from "#identity";
@@ -17,14 +17,13 @@ export function notifyJudgePolicyWarning(config: PermissionConfig, ctx: Extensio
 export function statusText(
 	config: PermissionConfig,
 	alwaysYes: AlwaysYes,
-	configFile: string,
 	cwd: string,
 	mode: PermissionMode,
 ): string {
 	const noUI = typeof config.noUI === "string" ? config.noUI : JSON.stringify(config.noUI);
 
 	return [
-		`${NAME} \u00b7 ${configFile}`,
+		`${NAME} \u00b7 ${configPath()}`,
 		`allow: ${config.allow.join(", ") || "(none)"}`,
 		`mode: ${MODE_LABEL[mode]} (this session)`,
 		`notes: ${config.notes} \u00b7 noUI: ${noUI}`,

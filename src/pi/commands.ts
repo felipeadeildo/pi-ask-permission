@@ -31,10 +31,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 		});
 
 	function notifyStatus(ctx: ExtensionContext): void {
-		ctx.ui.notify(
-			statusText(state.config, state.alwaysYes, state.configFile, ctx.cwd, state.mode),
-			"info",
-		);
+		ctx.ui.notify(statusText(state.config, state.alwaysYes, ctx.cwd, state.mode), "info");
 	}
 
 	function cycleMode(ctx: ExtensionContext): void {

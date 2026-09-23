@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
-import type { PermissionConfig } from "#core/config/schema.ts";
+import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
 import {
 	globalAlwaysYesPath,
 	loadConfig,
@@ -25,8 +25,6 @@ export interface JudgeHealth {
 export interface SessionState {
 	config: PermissionConfig;
 	mode: PermissionMode;
-	configFile: string;
-	configWarnings: string[];
 	alwaysYes: AlwaysYes;
 	pendingNotes: Map<string, string>;
 	judgeCache: Map<string, JudgeOutcome>;
@@ -37,20 +35,18 @@ export interface SessionState {
 }
 
 export function createSession(): SessionState {
-	const loaded = loadConfig();
+	const config = defaultConfig();
 
 	return {
-		config: loaded.config,
-		mode: loaded.config.mode,
-		configFile: loaded.path,
-		configWarnings: loaded.warnings,
+		config,
+		mode: config.mode,
 		alwaysYes: new AlwaysYes(),
 		pendingNotes: new Map(),
 		judgeCache: new Map(),
 		judgeLog: [],
 		judgeWarned: new Set(),
 		judgeHealth: { failures: 0, retryAt: 0 },
-		typing: new TypingMonitor(loaded.config.typing.pause, loaded.config.typing.maxWait),
+		typing: new TypingMonitor(),
 	};
 }
 
@@ -69,6 +65,16 @@ export function noteJudgeFailure(state: SessionState, ctx: ExtensionContext): vo
 		`${NAME}: judge paused for ${JUDGE_RETRY_MS / 1000}s after repeated failures; run /perm judge test`,
 		"warning",
 	);
+}
+
+// Read at every session start, so an edit to config.json applies from the next session.
+export function loadSessionConfig(state: SessionState, ctx: ExtensionContext): void {
+	const loaded = loadConfig();
+	state.config = loaded.config;
+	for (const warning of loaded.warnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
+
+	state.typing.stop();
+	state.typing = new TypingMonitor(loaded.config.typing.pause, loaded.config.typing.maxWait);
 }
 
 export function saveConfigFile(state: SessionState, ctx: ExtensionContext): void {

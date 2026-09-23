@@ -43,8 +43,6 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 	const state = {
 		config: { ...enabledJudge(), workspace: { roots: ["."], outside } },
 		mode,
-		configFile: "/dev/null",
-		configWarnings: [],
 		alwaysYes: new AlwaysYes(),
 		pendingNotes: new Map<string, string>(),
 		judgeCache: new Map(),

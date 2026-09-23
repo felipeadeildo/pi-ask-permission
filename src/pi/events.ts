@@ -24,6 +24,7 @@ import { clearModeStatus, renderModeStatus } from "#pi/mode.ts";
 import { editFailure } from "#pi/preflight.ts";
 import { restoreSession } from "#pi/session-entries.ts";
 import {
+	loadSessionConfig,
 	openAlwaysYes,
 	noteJudgeFailure,
 	rememberAlwaysYes,
@@ -40,7 +41,7 @@ const TYPING_STATUS = "waiting for you to finish typing";
 
 export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 	pi.on("session_start", (_event, ctx) => {
-		for (const warning of state.configWarnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
+		loadSessionConfig(state, ctx);
 		openAlwaysYes(state, ctx);
 		restoreSession(state, ctx);
 		notifyJudgePolicyWarning(state.config, ctx);
