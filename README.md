@@ -10,9 +10,9 @@
   <a href="https://pi.dev"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Ffelipeadeildo%2Fpi-ask-permission%2Fmain%2Fpackage.json&query=%24.devDependencies%5B%22%40earendil-works%2Fpi-coding-agent%22%5D&label=pi%20SDK&color=6E56CF" alt="pi SDK"></a>
 </p>
 
-Pi has no permission popups. This extension adds one.
+Pi runs every tool call without asking. This extension asks first.
 
-The dialog asks before a tool runs. Its three answers are `yes`, `always yes`, and `deny`, and any of them can carry a note that goes to the model with the tool result. Deny `npm install` with `use pnpm instead`, and the agent reads the correction while it keeps working.
+Answer `yes`, `always yes`, or `deny`, and add a note if you want. The note reaches the model with the result, so denying `npm install` with `use pnpm instead` corrects the agent without stopping it.
 
 <p align="center">
   <img src="assets/preview.png" alt="The permission dialog for npm install, with the judge card above it and a note typed on the deny row: use pnpm instead." width="860">
@@ -24,103 +24,86 @@ The dialog asks before a tool runs. Its three answers are `yes`, `always yes`, a
 pi install npm:pi-ask-permission
 ```
 
-Or `pi install git:github.com/felipeadeildo/pi-ask-permission`, or clone the repo and point `~/.pi/agent/settings.json` at `src/index.ts`.
+Then start pi as usual. There is nothing to configure.
 
-## The dialog
+## First run
 
-Press `tab` to attach a note to the highlighted row. Each row keeps its own draft, and approvals take a note too.
-
-If you are typing in the editor when a call arrives, the dialog waits for a pause. The footer reads `waiting for you to finish typing`, and by default it waits as long as you keep typing. `typing.maxWait` caps the wait.
-
-Paste works like the main editor. `ctrl+v` inserts a clipboard image as its temp file path, and a long or multi-line paste collapses to a `[paste #1 +48 lines]` marker that expands on confirm.
-
-| Key                    | Does                                                                    |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `↑` `↓` or `1` `2` `3` | move the highlight, and the open note input with it                     |
-| `enter`                | confirm the highlighted row                                             |
-| `tab`                  | open or close the note input, and in the depth picker, change the scope |
-| `esc`                  | deny, or close the note input if one is open                            |
-
-Digits only move the highlight, so any row can take a note or a plain confirm. The highlight starts on `yes`, so a plain approval is one `enter`.
-
-## Always yes
-
-`always yes` opens a second step: what to remember, then for how long.
+Ask the agent to do something that writes, like `run the tests`. The dialog opens before the command runs:
 
 ```
-permission · bash
-  pnpm test
-
-always yes for...
-  pnpm
-❯ pnpm test
-
-scope: this session   (tab to change)
+╭─ permission · bash ──────────────────────────────────╮
+│ pnpm test                                            │
+│                                                      │
+│ ❯ 1  yes                                             │
+│   2  always yes                                      │
+│   3  deny                                            │
+│                                                      │
+│ ↑↓ or 1-3 pick   enter confirm   tab note   esc deny │
+╰──────────────────────────────────────────────────────╯
 ```
 
-The narrowest level is preselected, so `enter` remembers exactly what was on screen. File tools nest by directory, so a write can be approved for one file or the folder around it.
+`enter` approves. `esc` denies. `tab` opens a note on the highlighted row.
 
-| Scope        | Stored in                                                    | Survives                 |
-| ------------ | ------------------------------------------------------------ | ------------------------ |
-| this session | the session file                                             | reloads and resumes      |
-| this project | `<project>/.pi/extensions/pi-ask-permission/always-yes.json` | reloads and new sessions |
-| everywhere   | `~/.pi/agent/extensions/pi-ask-permission/always-yes.json`   | everything               |
+Reads inside the project never ask. `read`, `grep`, `find`, `ls`, and bash commands that only read, like `cat`, `git log`, or `rg`, run on their own. An `edit` or `write` shows the diff it would make.
 
-The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level, so always yes for `bash` never covers `write`. The project file loads only in a trusted project. An old `grants.json` is renamed on first load.
+## Everyday use
 
-## Session modes
+### Stop answering the same question
 
-`Alt+M` cycles the session, and `/perm mode` does the same. `/perm mode auto` sets one directly.
+Pick `always yes`, then choose how much to remember and for how long:
 
-| Mode           | In the workspace        | Outside it, with `ask`      |
-| -------------- | ----------------------- | --------------------------- |
-| `manual`       | the normal gate decides | asks                        |
-| `accept edits` | `edit` and `write`      | asks                        |
-| `auto`         | every call              | `workspace.outside` decides |
-
-A call that left the workspace never reaches the judge. `auto` does not consult it inside either.
-
-The mode belongs to the session, and survives a reload or a resume. `Alt+M` never touches `config.json`, whose `mode` only sets where a new session starts.
-
-## Workspace
-
-`workspace.roots` lists the paths the check treats as inside. It defaults to `["."]`, the project root, and takes absolute paths, relative ones, and `~`. Resolution is lexical, plus a `realpath` when the target exists, so a symlink out of the project does not count as inside.
-
-`workspace.outside` decides what happens when a call leaves those roots. `"ask"` sends it to you, without the judge. `"deny"` blocks it. `"allow"` turns the boundary off, so `auto` runs everything anywhere. Always yes still wins, and an image pasted into the temp dir counts as inside.
-
-## Read-only bash
-
-Commands that only read run without a prompt: `cat`, `grep`, `wc`, `git log`, `git branch` (listing), `git remote` (listing), chains of them, and a `for` loop over a literal word list. Anything that writes, substitutes a command, opens a subshell, or assigns a variable asks. A redirect that discards output (`2>/dev/null`, `2>&1`, `>/dev/null`) does not. Turn the check off with `readOnlyBash`.
-
-## Judge
-
-Off by default. With it on, a model answers first. A confident yes runs the call, a confident no blocks it, and anything else comes to you, including timeouts, errors, and missing keys.
-
-Two providers:
-
-- **Jev**, TypeSafe's System One model, answers typed questions with a verdict, a probability distribution, and a confidence.
-- **A pi model** is asked for strict JSON. A reply that is not valid JSON counts as no judgement.
-
-### Set up Jev
-
-```bash
-/login typesafe
+```
+╭─ permission · bash ──────────────────────────────────╮
+│ pnpm test                                            │
+│                                                      │
+│ always yes for...                                    │
+│   pnpm                                               │
+│ ❯ pnpm test                                          │
+│                                                      │
+│ scope: this session   (tab to change)                │
+│                                                      │
+│ ↑↓ depth   tab scope   enter confirm   esc back      │
+╰──────────────────────────────────────────────────────╯
 ```
 
-The extension registers an auth-only `typesafe` provider, so the key is stored through pi and Jev never appears in the model picker. `TYPESAFE_API_KEY` works too.
+We recommend the narrowest level, which is preselected. `pnpm` would also approve `pnpm publish`.
 
-### Write a policy
+| Scope        | Lasts                                    | Stored in                                                  |
+| ------------ | ---------------------------------------- | ---------------------------------------------------------- |
+| this session | until the session ends, reloads included | the session file                                           |
+| this project | every session in this project            | `.pi/extensions/pi-ask-permission/always-yes.json`         |
+| everywhere   | every session                            | `~/.pi/agent/extensions/pi-ask-permission/always-yes.json` |
 
-The policy is the rulebook the judge reads. Turn on `Judge` in `/perm` and a `Policy` row appears.
+Run `/perm forget` to drop this session's, or `/perm forget project` for the project's.
 
-| Preset               | Allows                                            | Still asks                              |
-| -------------------- | ------------------------------------------------- | --------------------------------------- |
-| Locked down          | reads, existing tests                             | any write, install, or network call     |
-| Standard development | project edits, tests, builds, local git           | installs, network, destructive commands |
-| Autonomous           | the above plus project installs and network reads | sudo, credentials, destructive commands |
-| Custom               | whatever you write                                | everything else                         |
+### Let the agent work
 
-Standard development is the default. A picker shows each preset's description, and the preset is plain text, so you can pick one and keep editing.
+Press `Alt+M` to switch modes. The status bar shows the one you are in.
+
+| Mode           | Runs without asking                  |
+| -------------- | ------------------------------------ |
+| `manual`       | nothing beyond reads and always yes  |
+| `accept edits` | file edits and writes in the project |
+| `auto`         | everything in the project            |
+
+A call that leaves the project still asks, in every mode. The mode lasts for the session and never changes `config.json`.
+
+### Correct the agent
+
+A note on `deny` tells the agent what to do instead. A note on `yes` adds context, like `and update the snapshot`. Both reach the model with the tool result.
+
+If you are typing in the editor when a call arrives, the dialog waits until you pause.
+
+## Let a model decide
+
+The judge answers first, and only the calls it is unsure about reach you. It is off by default. We recommend this setup:
+
+1. Run `/login typesafe` to use Jev, a fast model that answers with a confidence. Any model you set up in pi works too.
+2. Open `/perm`, turn on `Judge`, and turn on `Dry run`. The judge now shows its verdict as a card, and you still decide.
+3. Pick a policy. `Standard development` allows edits, tests, builds, and local git, and asks about installs, network, and anything destructive.
+4. After a few sessions of agreeing with it, turn off `Dry run`.
+
+The policy is plain text, so you can start from a preset and edit it:
 
 ```text
 # May run without asking
@@ -130,134 +113,119 @@ Standard development is the default. A picker shows each preset's description, a
 # Must always ask first
 - sudo, or anything that changes system-wide state
 - Anything that reaches the network
-- Deleting files outside the project
 
 # When in doubt
 Ask me.
 ```
 
-Turn on `Dry run` to watch it decide without acting. Each decision shows up in the transcript as a card, and `/perm judge log` keeps the session history. If calls come back as `the judge could not decide: no response from ...`, run `/perm judge test`: one real request with a generous timeout, reporting the model, the latency, and the exact error.
-
-### How the judge decides
-
-The judge answers a fixed set of atomic questions: a verdict, how reversible the call is, and whether it touches secrets. Code combines the answers. There is no broad `is this safe?` prompt, and no question about the workspace, because code settles that one.
-
-```text
-risk = 0.60 × reversibility + 0.40 × sensitive
-```
-
-A call is approved only when the verdict is `allow`, its confidence clears `thresholds.allow`, and `risk` is at or below `riskCeiling`. It is denied only when the verdict is `deny` and confidence clears `thresholds.deny`. Everything else comes to you, unless `whenUnsure` says otherwise. Code checks `alwaysAsk` first, so a call on it is never auto-approved.
-
-The policy is authoritative and the tool call is treated as untrusted data, so a command cannot talk its way past `alwaysAsk`.
-
-### Settings
-
-The judge rows appear under `Judge` in `/perm`. Each row is the `judge` key of the same name in `config.json`.
-
-| Row                | Key                 | Does                                                        |
-| ------------------ | ------------------- | ----------------------------------------------------------- |
-| Judge              | `enabled`           | Turns the judge on                                          |
-| Provider           | `provider`          | Jev, or a model you set up in pi                            |
-| Model              | `model`             | Such as `jev-latest`                                        |
-| Can deny           | `canDeny`           | A confident no blocks the call. Off, it comes to you        |
-| When unsure        | `whenUnsure`        | Ask you, allow, or deny                                     |
-| When it fails      | `whenItFails`       | Ask you, allow, or deny on a timeout, error, or no key      |
-| Tools              | `tools`             | What the judge decides. Hand-edited patterns show as Custom |
-| Policy             | `policy`            | A preset, or your own text                                  |
-| Dry run            | `dryRun`            | Show the verdict, and still ask                             |
-| Judge with no UI   | `noUI`              | Also judge print, JSON, and subagent runs                   |
-| Remember approvals | `rememberApprovals` | A judge approval becomes always yes for this session        |
-
-`alwaysAsk` has no row. It lists patterns the judge never approves.
-
-## Configuration
-
-One file, created with these defaults on first load. `PI_CODING_AGENT_DIR` moves it with the rest of the agent directory.
-
-```
-~/.pi/agent/extensions/pi-ask-permission/config.json
-```
-
-```json
-{
-	"allow": ["read", "grep", "find", "ls"],
-	"noUI": "deny",
-	"notes": "result",
-	"mode": "manual",
-	"readOnlyBash": true,
-	"workspace": { "roots": ["."], "outside": "ask" },
-	"typing": { "pause": 1000, "maxWait": null }
-}
-```
-
-The file also carries the full `judge` block, disabled by default.
-
-`allow` lists the tools that never prompt. Wildcards work, so `mcp_*` covers a family. Everything else asks, including tools registered later.
-
-`noUI` decides when nobody can answer, as in print mode, JSON mode, or a subagent. It takes one mode or a per-tool map. Specificity wins over file order, so an exact name beats a wildcard and a wildcard beats `*`.
-
-```json
-{
-	"noUI": { "*": "allow", "bash": "deny" }
-}
-```
-
-`notes` picks where a note on an approval goes. `"result"` adds it to the tool result. `"message"` sends it as a message of its own.
-
-`mode` is the mode a new session starts in. `"manual"` asks as usual, `"accept-edits"` runs file edits and writes inside the workspace, and `"auto"` runs everything inside it. Change it from `/perm` or `Alt+M` and only the current session moves. Change it here and only the next session.
-
-`typing` tunes the wait before the dialog opens. `pause` is the quiet time in milliseconds. `maxWait` caps the total wait, or `null` for no cap.
-
-A missing or malformed file falls back to the defaults and reports what it dropped. A typo never widens the gate. A file from before 3.0 is read with the new names and rewritten once.
+If calls come back as `the judge could not decide`, run `/perm judge test`. It sends one request and reports the model, the latency, and the error.
 
 ## Commands
 
 Type `/perm ` and the editor suggests the rest.
 
-| Command                | Does                                                           |
-| ---------------------- | -------------------------------------------------------------- |
-| `/perm`                | Open the settings                                              |
-| `/perm mode`           | Switch to the next mode (also `Alt+M`)                         |
-| `/perm mode auto`      | Switch to a mode (also `manual` and `accept-edits`)            |
-| `/perm status`         | Show the config, always yes, and file paths                    |
-| `/perm forget`         | Forget this session's always yes                               |
-| `/perm forget project` | Forget this project's always yes (also `everywhere`, `all`)    |
-| `/perm judge on`       | Turn the judge on (also `off`)                                 |
-| `/perm judge log`      | Show this session's judge decisions                            |
-| `/perm judge test`     | Send one real request and report the model, latency, and error |
+| Command                | Does                                                        |
+| ---------------------- | ----------------------------------------------------------- |
+| `/perm`                | Open the settings                                           |
+| `/perm mode`           | Switch to the next mode (also `Alt+M`)                      |
+| `/perm mode auto`      | Switch to a mode (also `manual`, `accept-edits`)            |
+| `/perm status`         | Show the config, always yes, and file paths                 |
+| `/perm forget`         | Forget this session's always yes                            |
+| `/perm forget project` | Forget this project's always yes (also `everywhere`, `all`) |
+| `/perm judge on`       | Turn the judge on (also `off`)                              |
+| `/perm judge log`      | Show this session's judge decisions                         |
+| `/perm judge test`     | Send one real request and report what happened              |
 
-## How a call is decided
+## Reference
 
-1. Always yes matches this tool and level, allow.
-2. The mode approves it: `auto` approves everything in the workspace, `accept-edits` approves `edit` and `write` in it.
-3. The tool is in `allow`, allow.
-4. `readOnlyBash` is on and the bash command only reads, allow.
-5. A call outside the workspace is not auto-approved. `workspace.outside` says whether it asks you directly or blocks.
-6. The judge is on and decides this tool. A confident allow runs, a confident deny blocks, and anything uncertain continues.
-7. There is a UI, ask.[^edit]
-8. There is no UI, `noUI` decides. With `Judge with no UI` on, the judge answers first.
+### Dialog keys
 
-[^edit]: An `edit` whose `oldText` cannot match the file is blocked with the matcher's own error, no dialog. Asking about an edit that is already going to fail only costs a keystroke.
+| Key                    | Does                                                 |
+| ---------------------- | ---------------------------------------------------- |
+| `↑` `↓` or `1` `2` `3` | Move the highlight                                   |
+| `enter`                | Confirm the highlighted row                          |
+| `tab`                  | Open or close a note, or change the always yes scope |
+| `esc`                  | Close the note, or deny                              |
+| `ctrl+v`               | Paste a clipboard image as its file path             |
 
-## Limits
+A long paste collapses to `[paste #1 +48 lines]` and expands when you confirm.
 
-Always yes is exact. It has no wildcards, no path canonicalization, and no symlink resolution. A command arrives as the agent wrote it and is judged by the person reading it.
+### Configuration
 
-A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`, and the whole chain, because the depth picker reads text instead of parsing the shell. Always yes on a chain is coarse at the head and exact at the tail.
+`~/.pi/agent/extensions/pi-ask-permission/config.json` is created on first run. Every key has a row of the same name in `/perm`.
 
-`allow` matches a tool name, not an argument, so allowing `bash` permits every bash command.
+```json
+{
+	"allow": ["read", "grep", "find", "ls"],
+	"mode": "manual",
+	"readOnlyBash": true,
+	"notes": "result",
+	"noUI": "deny",
+	"workspace": { "roots": ["."], "outside": "ask" },
+	"typing": { "pause": 1000, "maxWait": null },
+	"judge": { "enabled": false }
+}
+```
 
-`accept edits` covers `edit`, `write`, and any tool that declares `edits: true` (see below). Anything else asks.
+| Key                 | Does                                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `allow`             | Tools that never ask. `mcp_*` matches a family. It matches the tool name, so `bash` allows every command                               |
+| `mode`              | The mode a new session starts in                                                                                                       |
+| `readOnlyBash`      | Run bash commands that only read without asking                                                                                        |
+| `notes`             | `"result"` adds a note to the tool result. `"message"` sends it as its own message                                                     |
+| `noUI`              | `"allow"` or `"deny"` when nobody can answer, as in print mode or a subagent. Takes a per-tool map: `{ "*": "allow", "bash": "deny" }` |
+| `workspace.roots`   | Paths that count as the project. Relative, absolute, and `~` work                                                                      |
+| `workspace.outside` | A call outside the roots: `"ask"` you, `"deny"` it, or `"allow"` it like any other                                                     |
+| `typing.pause`      | Milliseconds of quiet before the dialog opens while you type                                                                           |
+| `typing.maxWait`    | The longest the dialog waits for you to stop typing. `null` waits forever                                                              |
 
-The judge is a model. It narrows what reaches the dialog; it does not guarantee anything. An `alwaysAsk` pattern, a deterministic block, or an uncertain verdict still reaches you, and in `manual` the judge can only narrow. `auto` and `accept edits` skip the judge for the tools they approve. The judge reads the tool call you give it, so do not point it at calls that carry secrets you would not send to that provider.
+The `judge` block:
 
-A bash command whose paths the check cannot read counts as outside. `$HOME`, `$SECRET`, and `"$@"` all ask for that reason.
+| Key                 | Default        | Does                                                  |
+| ------------------- | -------------- | ----------------------------------------------------- |
+| `enabled`           | `false`        | Turn the judge on                                     |
+| `provider`          | `"jev"`        | `"jev"`, or `"pi"` for a model you set up in pi       |
+| `model`             | `"jev-latest"` | A Jev alias, or `provider/modelId` for a pi model     |
+| `tools`             | `["bash"]`     | Tools the judge decides. The rest ask you             |
+| `policy`            | Standard       | The rules the judge follows                           |
+| `canDeny`           | `true`         | A confident no blocks the call. Off, it asks you      |
+| `whenUnsure`        | `"ask"`        | `"ask"`, `"allow"`, or `"deny"`                       |
+| `whenItFails`       | `"ask"`        | The same, for a timeout, an error, or a missing key   |
+| `alwaysAsk`         | `[]`           | Patterns the judge never approves, like `"git push*"` |
+| `dryRun`            | `false`        | Show the verdict, and still ask you                   |
+| `noUI`              | `false`        | Also judge print, JSON, and subagent runs             |
+| `rememberApprovals` | `false`        | A judge approval becomes always yes for this session  |
+| `thresholds`        | `0.85` / `0.8` | Confidence needed to allow / deny                     |
+| `riskCeiling`       | `0.45`         | Highest risk the judge may approve                    |
+| `timeoutMs`         | `5000`         | How long to wait for an answer                        |
 
-If you want deterministic rules with no human in the loop, this is the wrong tool.
+The file carries the full `judge` block. A malformed file falls back to the defaults and says what it dropped, so a typo never lets more through. A file from before 3.0 is rewritten with the new names on first load. `PI_CODING_AGENT_DIR` moves the file with the rest of the agent directory.
 
-The read-only check is a classifier, not a sandbox. It matches the command name as written and does not resolve `PATH`, so a `cat` that is a different binary earlier on `PATH` passes the check and then runs. It refuses a name shadowed by an exported shell function, and `BASH_ENV` disables the check because that file can define functions. It also refuses anything it cannot prove harmless, so a few safe commands still ask.
+### How a call is decided
 
-## For other extensions
+The first step that answers wins.
+
+1. **Always yes** matches the tool and level: run it.
+2. **Workspace**: a call outside `workspace.roots` asks you, or is blocked with `outside: "deny"`. Nothing below can approve it.
+3. **Mode**: `auto` runs it, `accept edits` runs an edit.
+4. **Allow list**: the tool is in `allow`, run it.
+5. **Read-only bash**: the command only reads, run it.
+6. **Judge**: a confident yes runs it, a confident no blocks it.
+7. **No UI**: `noUI` decides.
+8. **Edit check**: an `edit` that cannot apply is blocked with pi's own error, so you never approve a failure.
+9. **You**, in the dialog.
+
+The judge answers three questions: a verdict, how reversible the call is, and whether it touches secrets. Code combines them into `risk = 0.6 × reversibility + 0.4 × sensitive` and approves only when the verdict is `allow`, confidence clears `thresholds.allow`, and risk is at most `riskCeiling`. The judge treats the tool call as data, so a command cannot talk its way past the policy or `alwaysAsk`.
+
+### Limits
+
+- Always yes matches text. `cd /repo && pnpm test` offers `cd`, `cd /repo`, and the whole line, not `pnpm test`.
+- A bash path the check cannot read counts as outside. `$HOME`, `$SECRET`, and `"$@"` ask for that reason.
+- The read-only check is a classifier, not a sandbox. It trusts the command name as written and does not resolve `PATH`. It refuses anything it cannot prove harmless, so a few safe commands still ask.
+- The judge is a model, and it can be wrong. It sees the tool call, so do not judge calls that carry secrets you would not send to its provider.
+- If you want deterministic rules and no human in the loop, use a sandbox instead.
+
+### For other extensions
 
 Every decision goes out on `pi.events`:
 
@@ -267,9 +235,9 @@ pi.events.on("pi-ask-permission:decided", (decided) => {
 });
 ```
 
-`by` is the step that decided (`always yes`, `workspace`, `mode`, `allow list`, `read-only bash`, `judge`), `you` for the dialog, or `no UI`. Answers from the dialog are also kept in the session as `pi-ask-permission:answer` entries.
+`by` names the step above that decided, `you` for the dialog, or `no UI`. Dialog answers are also saved in the session as `pi-ask-permission:answer` entries.
 
-A tool can say what it touches, so the workspace and `accept edits` treat it right. Emit from `session_start`, when every extension has loaded:
+A custom tool can say what it touches, so the workspace and `accept edits` treat it like `edit`. Emit from `session_start`, after every extension has loaded:
 
 ```ts
 pi.on("session_start", () => {
@@ -283,13 +251,13 @@ pi.on("session_start", () => {
 
 A tool that says nothing has no paths and is not an edit. Built-in tools cannot be redescribed.
 
-## Compatibility
+### Compatibility
 
-Tested against the pi SDK pinned in `devDependencies`, the version the `pi SDK` badge reads from `package.json`. New pi releases get checked as they land, so the pin does not drift. The peer range stays `*` on purpose: the host picks the SDK that loads the extension, so a range would only complain about a combination the host already accepted.
+Tested against the pi SDK pinned in `devDependencies`, which the `pi SDK` badge shows. CI checks each new pi release. The peer range is `*` because pi, not npm, picks the SDK that loads the extension.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Commits follow [Conventional Commits](https://www.conventionalcommits.org); [release-please](https://github.com/googleapis/release-please) handles the changelog and the publish.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Commits follow [Conventional Commits](https://www.conventionalcommits.org), and [release-please](https://github.com/googleapis/release-please) publishes.
 
 ## License
 
