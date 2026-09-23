@@ -6,8 +6,7 @@ import {
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 
-// pi starts the bash "Took" clock when the call appears, before the permission dialog
-// answers. This override restarts the clock when the command actually runs.
+// pi starts the "Took" clock before the dialog answers; this restarts it when bash runs.
 export function registerBashTimer(pi: ExtensionAPI): void {
 	const template = createBashToolDefinition(process.cwd());
 	const renderResult = template.renderResult;
@@ -38,8 +37,7 @@ export function registerBashTimer(pi: ExtensionAPI): void {
 	pi.registerTool(timed);
 }
 
-// Built per call, like pi's own bash, so `shellPath` and `shellCommandPrefix` follow
-// /settings, and an untrusted project's settings.json cannot prefix every command.
+// Per call, so an untrusted project's settings.json cannot prefix every command.
 function bashFor(ctx: ExtensionContext): ReturnType<typeof createBashToolDefinition> {
 	const settings = SettingsManager.create(ctx.cwd, getAgentDir(), {
 		projectTrusted: ctx.isProjectTrusted(),

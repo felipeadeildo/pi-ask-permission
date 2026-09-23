@@ -1,6 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
-import { commandLevels, deriveTarget, pathLevels, shortenHome, tokenize } from "#core/target.ts";
+import {
+	asToolInput,
+	type CallDescriptor,
+	commandLevels,
+	createToolRegistry,
+	pathLevels,
+	shortenHome,
+	tokenize,
+} from "#core/tools.ts";
+
+function describeCall(toolName: string, input: unknown): CallDescriptor {
+	return createToolRegistry().get(toolName).describe(asToolInput(input));
+}
 
 describe("commandLevels", () => {
 	test("nests a command from head to exact", () => {
@@ -68,36 +80,70 @@ describe("tokenize", () => {
 	});
 });
 
-describe("deriveTarget", () => {
+describe("describe", () => {
 	test("bash uses the command", () => {
-		expect(deriveTarget("bash", { command: "sudo rm -rf /tmp/x" })).toEqual({
+		expect(describeCall("bash", { command: "sudo rm -rf /tmp/x" })).toEqual({
 			summary: "sudo rm -rf /tmp/x",
 			grantLevels: ["sudo", "sudo rm", "sudo rm -rf /tmp/x"],
 		});
 	});
 
 	test("file tools use the path", () => {
-		expect(deriveTarget("write", { path: "src/a.ts" }).grantLevels).toEqual(["src", "src/a.ts"]);
+		expect(describeCall("write", { path: "src/a.ts" }).grantLevels).toEqual(["src", "src/a.ts"]);
 	});
 
 	test("mcp nests server then tool", () => {
-		expect(deriveTarget("mcp", { server: "github", tool: "search_code" })).toEqual({
+		expect(describeCall("mcp", { server: "github", tool: "search_code" })).toEqual({
 			summary: "github:search_code",
 			grantLevels: ["github", "github:search_code"],
 		});
 	});
 
 	test("an unknown tool has one level: its name", () => {
-		expect(deriveTarget("todo", { items: [1] }).grantLevels).toEqual(["todo"]);
+		expect(describeCall("todo", { items: [1] }).grantLevels).toEqual(["todo"]);
 	});
 
 	test("a missing input does not throw", () => {
-		expect(deriveTarget("bash", undefined).grantLevels).toEqual(["(empty command)"]);
+		expect(describeCall("bash", undefined).grantLevels).toEqual(["(empty command)"]);
 	});
 });
 
 describe("shortenHome", () => {
 	test("leaves other paths alone", () => {
 		expect(shortenHome("/etc/passwd")).toBe("/etc/passwd");
+	});
+});
+
+describe("tool adapters", () => {
+	test("edit and write are edits, bash is not", () => {
+		const tools = createToolRegistry();
+		expect(tools.get("edit").edits).toBe(true);
+		expect(tools.get("write").edits).toBe(true);
+		expect(tools.get("bash").edits).toBeUndefined();
+	});
+
+	test("powershell paths cannot be read, so every call counts as outside", () => {
+		expect(createToolRegistry().get("powershell").paths({ command: "ls" })).toBeUndefined();
+	});
+
+	test("an unknown tool has no paths", () => {
+		expect(
+			createToolRegistry()
+				.get("todo")
+				.paths({ items: [1] }),
+		).toEqual([]);
+	});
+
+	test("a registered adapter replaces the built-in until it is removed", () => {
+		const tools = createToolRegistry();
+		const remove = tools.register("todo", {
+			describe: () => ({ summary: "todo", grantLevels: ["todo"] }),
+			paths: () => undefined,
+			edits: true,
+		});
+
+		expect(tools.get("todo").edits).toBe(true);
+		remove();
+		expect(tools.get("todo").edits).toBeUndefined();
 	});
 });

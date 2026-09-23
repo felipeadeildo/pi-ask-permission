@@ -4,9 +4,6 @@ export type PermissionMode = (typeof PERMISSION_MODES)[number];
 
 export const DEFAULT_MODE: PermissionMode = "manual";
 
-/** Tools that run without a prompt while the session is in `accept-edits`. */
-export const EDIT_TOOLS: ReadonlySet<string> = new Set(["edit", "write"]);
-
 export const MODE_LABEL: Record<PermissionMode, string> = {
 	manual: "manual",
 	"accept-edits": "accept edits",
@@ -38,9 +35,8 @@ export function nextMode(mode: PermissionMode): PermissionMode {
 	return PERMISSION_MODES[(index + 1) % PERMISSION_MODES.length] ?? DEFAULT_MODE;
 }
 
-export function modeApproves(mode: PermissionMode, toolName: string, outside: boolean): boolean {
-	if (outside) return false;
+export function modeApproves(mode: PermissionMode, edits: boolean): boolean {
 	if (mode === "auto") return true;
-	if (mode === "accept-edits") return EDIT_TOOLS.has(toolName);
+	if (mode === "accept-edits") return edits;
 	return false;
 }

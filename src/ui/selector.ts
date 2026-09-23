@@ -1,15 +1,15 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import type { PermissionDecision } from "#core/decision.ts";
+import type { DialogAnswer } from "#core/answer.ts";
 import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
-import type { CallDescriptor } from "#core/target.ts";
+import type { CallDescriptor } from "#core/tools.ts";
 import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
 
 export async function askViaSelector(
 	ctx: ExtensionContext,
 	toolName: string,
 	target: CallDescriptor,
-): Promise<PermissionDecision> {
+): Promise<DialogAnswer> {
 	const labels = FALLBACK_CHOICES.map((option) => `${option.key}. ${option.label}`);
 	const choice = await ctx.ui.select(`Allow ${toolName}?\n${target.summary}`, labels);
 	const option = choice ? FALLBACK_CHOICES[labels.indexOf(choice)] : undefined;

@@ -11,9 +11,9 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
-import type { PermissionDecision } from "#core/decision.ts";
+import type { DialogAnswer } from "#core/answer.ts";
 import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
-import type { CallDescriptor } from "#core/target.ts";
+import type { CallDescriptor } from "#core/tools.ts";
 import { readClipboard } from "#ui/clipboard.ts";
 import { CHOICES, type Choice } from "#ui/decision-options.ts";
 import {
@@ -39,7 +39,7 @@ interface AskDialogOptions {
 	target: CallDescriptor;
 	keybindings: KeybindingsManager;
 	requestRender: () => void;
-	complete: (decision: PermissionDecision) => void;
+	complete: (answer: DialogAnswer) => void;
 }
 
 export class AskDialog implements Component, Focusable {
@@ -47,7 +47,7 @@ export class AskDialog implements Component, Focusable {
 	private readonly toolName: string;
 	private readonly target: CallDescriptor;
 	private readonly requestRender: () => void;
-	private readonly complete: (decision: PermissionDecision) => void;
+	private readonly complete: (answer: DialogAnswer) => void;
 	private readonly keybindings: KeybindingsManager;
 
 	private readonly noteInputs: Input[];

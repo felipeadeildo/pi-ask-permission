@@ -18,28 +18,19 @@ describe("nextMode", () => {
 });
 
 describe("modeApproves", () => {
-	test("auto approves every tool inside the workspace", () => {
-		expect(modeApproves("auto", "bash", false)).toBe(true);
-		expect(modeApproves("auto", "read", false)).toBe(true);
+	test("auto approves every tool", () => {
+		expect(modeApproves("auto", false)).toBe(true);
+		expect(modeApproves("auto", true)).toBe(true);
 	});
 
-	test("no mode approves a call that left the workspace", () => {
-		for (const mode of PERMISSION_MODES) {
-			expect(modeApproves(mode, "bash", true)).toBe(false);
-			expect(modeApproves(mode, "edit", true)).toBe(false);
-		}
-	});
-
-	test("accept edits approves writes and edits inside the workspace only", () => {
-		expect(modeApproves("accept-edits", "edit", false)).toBe(true);
-		expect(modeApproves("accept-edits", "write", false)).toBe(true);
-		expect(modeApproves("accept-edits", "bash", false)).toBe(false);
+	test("accept edits approves edits only", () => {
+		expect(modeApproves("accept-edits", true)).toBe(true);
+		expect(modeApproves("accept-edits", false)).toBe(false);
 	});
 
 	test("manual approves nothing on its own", () => {
-		expect(modeApproves("manual", "edit", false)).toBe(false);
-		expect(modeApproves("manual", "write", false)).toBe(false);
-		expect(modeApproves("manual", "bash", false)).toBe(false);
+		expect(modeApproves("manual", true)).toBe(false);
+		expect(modeApproves("manual", false)).toBe(false);
 	});
 });
 

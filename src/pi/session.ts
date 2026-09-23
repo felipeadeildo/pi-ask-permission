@@ -13,6 +13,7 @@ import {
 } from "#core/grants.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
 import type { PermissionMode } from "#core/mode.ts";
+import { createToolRegistry, type ToolRegistry } from "#core/tools.ts";
 import { NAME } from "#identity";
 import { TypingMonitor } from "#ui/typing.ts";
 
@@ -38,6 +39,7 @@ export interface SessionState {
 	judgeWarned: Set<string>;
 	judgeHealth: JudgeHealth;
 	typing: TypingMonitor;
+	tools: ToolRegistry;
 }
 
 export function createSession(): SessionState {
@@ -55,6 +57,7 @@ export function createSession(): SessionState {
 		judgeWarned: new Set(),
 		judgeHealth: { failures: 0, retryAt: 0 },
 		typing: new TypingMonitor(loaded.config.typing.pause, loaded.config.typing.maxWait),
+		tools: createToolRegistry(),
 	};
 }
 

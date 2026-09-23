@@ -4,17 +4,22 @@ import {
 	isToolCallEventType,
 } from "@earendil-works/pi-coding-agent";
 
-import { headlessMode, isAllowed } from "#core/config/patterns.ts";
+import type { DialogAnswer } from "#core/answer.ts";
+import { headlessMode } from "#core/config/patterns.ts";
 import type { PermissionConfig } from "#core/config/schema.ts";
-import type { PermissionDecision } from "#core/decision.ts";
+import {
+	type Call,
+	decide,
+	describeCall,
+	type GateState,
+	gateLayers,
+	type Layer,
+	type Verdict,
+} from "#core/decide.ts";
 import { grantKey, SCOPE_LABEL, type GrantScope } from "#core/grants.ts";
 import { judgeGate } from "#core/judge/gate.ts";
 import { judgeVerdictText, remember, warnOnce } from "#core/judge/report.ts";
-import { modeApproves } from "#core/mode.ts";
-import { isReadOnlyCommand } from "#core/readonly-bash.ts";
-import type { CallDescriptor } from "#core/target.ts";
-import { deriveTarget, shortenHome } from "#core/target.ts";
-import { checkWorkspace } from "#core/workspace.ts";
+import type { CallDescriptor } from "#core/tools.ts";
 import { NAME } from "#identity";
 import { clearModeStatus, renderModeStatus } from "#pi/mode.ts";
 import { editFailure } from "#pi/preflight.ts";
@@ -50,39 +55,14 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 
 	pi.on("tool_call", async (event, ctx) => {
 		const { config } = state;
-		const toolName = event.toolName;
+		const call = describeCall(state.tools, event.toolName, event.input, ctx.cwd, config);
+		const layers = [...gateLayers(gateState(state)), judgeLayer(state, pi, ctx)];
+		const decision = await decide(call, layers);
 
-		const target = deriveTarget(toolName, event.input);
-		if (isGranted(state, toolName, target.grantLevels)) return undefined;
+		if (decision.action === "allow") return undefined;
+		if (decision.action === "block") return { block: true, reason: decision.reason };
 
-		const workspace = checkWorkspace(config.workspace, ctx.cwd, toolName, event.input);
-		const outside = workspace.outside && config.workspace.outside !== "allow";
-
-		if (modeApproves(state.mode, toolName, outside)) return undefined;
-		if (!outside && isAllowed(config, toolName)) return undefined;
-
-		if (
-			!outside &&
-			config.readOnlyBash &&
-			isToolCallEventType("bash", event) &&
-			isReadOnlyCommand(event.input.command)
-		) {
-			return undefined;
-		}
-
-		if (outside && config.workspace.outside === "deny") {
-			return { block: true, reason: outsideReason(workspace.path) };
-		}
-
-		// A call that left the workspace goes straight to the dialog, so the judge never
-		// gets to approve it.
-		const resolution = outside
-			? undefined
-			: await runJudge(state, { pi, ctx, toolName, target, rawInput: event.input });
-		if (resolution?.block) return resolution.block;
-		if (resolution?.allow) return undefined;
-
-		if (!ctx.hasUI) return headlessRefusal(config, toolName);
+		if (!ctx.hasUI) return headlessRefusal(config, call.toolName);
 
 		if (isToolCallEventType("edit", event)) {
 			const failure = await editFailure(ctx, event.input);
@@ -94,26 +74,26 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 		});
 
 		state.typing.pause();
-		const decision = await ask(ctx, toolName, target).finally(() => state.typing.resume());
+		const answer = await ask(ctx, call.toolName, call.target).finally(() => state.typing.resume());
 
-		if (decision.decision === "deny") {
-			return { block: true, reason: denyReason(decision.note) };
+		if (answer.decision === "deny") {
+			return { block: true, reason: denyReason(answer.note) };
 		}
 
-		if (decision.remember) {
-			const scope: GrantScope = decision.scope ?? "session";
-			state.grants[scope].add(grantKey(toolName, decision.remember));
+		if (answer.remember) {
+			const scope: GrantScope = answer.scope ?? "session";
+			state.grants[scope].add(grantKey(call.toolName, answer.remember));
 			if (scope !== "session") persistGrants(state, ctx, scope);
 
 			ctx.ui.notify(
-				`${NAME}: always yes for ${toolName} \u00b7 ${decision.remember} (${SCOPE_LABEL[scope]})`,
+				`${NAME}: always yes for ${call.toolName} \u00b7 ${answer.remember} (${SCOPE_LABEL[scope]})`,
 				"info",
 			);
 		}
 
-		if (decision.note) {
-			if (config.followup === "message") sendNote(pi, decision.note, toolName);
-			else state.pendingNotes.set(event.toolCallId, decision.note);
+		if (answer.note) {
+			if (config.followup === "message") sendNote(pi, answer.note, call.toolName);
+			else state.pendingNotes.set(event.toolCallId, answer.note);
 		}
 
 		return undefined;
@@ -128,32 +108,32 @@ export function registerEvents(pi: ExtensionAPI, state: SessionState): void {
 	});
 }
 
-interface JudgeRequest {
-	pi: ExtensionAPI;
-	ctx: ExtensionContext;
-	toolName: string;
-	target: CallDescriptor;
-	rawInput: unknown;
+function gateState(state: SessionState): GateState {
+	return {
+		config: state.config,
+		mode: state.mode,
+		isGranted: (toolName, levels) => isGranted(state, toolName, levels),
+	};
 }
 
-interface JudgeResolution {
-	block?: { block: true; reason: string };
-	allow?: boolean;
+function judgeLayer(state: SessionState, pi: ExtensionAPI, ctx: ExtensionContext): Layer {
+	return { name: "judge", decide: (call) => runJudge(state, pi, ctx, call) };
 }
 
 async function runJudge(
 	state: SessionState,
-	request: JudgeRequest,
-): Promise<JudgeResolution | undefined> {
-	const { ctx, toolName, target } = request;
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	call: Call,
+): Promise<Verdict | undefined> {
 	if (Date.now() < state.judgeHealth.retryAt) return undefined;
 
 	const outcome = await judgeGate({
 		config: state.config,
 		ctx,
-		toolName,
-		target,
-		rawInput: request.rawInput,
+		toolName: call.toolName,
+		target: call.target,
+		rawInput: call.input,
 		cache: state.judgeCache,
 		onStatus: (status) => ctx.ui.setStatus(JUDGE_STATUS, status),
 	});
@@ -161,7 +141,7 @@ async function runJudge(
 
 	const record = outcome.record;
 	remember(record, state.judgeLog);
-	appendJudgeEntry(request.pi, record);
+	appendJudgeEntry(pi, record);
 
 	if (record.error) {
 		warnOnce(ctx, state.judgeWarned, record);
@@ -171,15 +151,15 @@ async function runJudge(
 	}
 
 	if (outcome.action === "deny") {
-		return { block: { block: true, reason: `${NAME}: ${outcome.reason}` } };
+		return { action: "block", reason: `${NAME}: ${outcome.reason}` };
 	}
 
 	if (outcome.action === "allow") {
 		if (state.config.judge.grant) {
-			const level = target.grantLevels.at(-1);
-			if (level !== undefined) state.grants.session.add(grantKey(toolName, level));
+			const level = call.target.grantLevels.at(-1);
+			if (level !== undefined) state.grants.session.add(grantKey(call.toolName, level));
 		}
-		return { allow: true };
+		return { action: "allow" };
 	}
 
 	if (state.config.judge.dryRun && !record.error) {
@@ -193,10 +173,10 @@ async function ask(
 	ctx: ExtensionContext,
 	toolName: string,
 	target: CallDescriptor,
-): Promise<PermissionDecision> {
+): Promise<DialogAnswer> {
 	if (ctx.mode === "tui") {
 		try {
-			const decision = await ctx.ui.custom<PermissionDecision>(
+			const answer = await ctx.ui.custom<DialogAnswer>(
 				(tui, theme, keybindings, done) =>
 					new AskDialog({
 						theme,
@@ -207,18 +187,13 @@ async function ask(
 						complete: done,
 					}),
 			);
-			if (decision) return decision;
+			if (answer) return answer;
 		} catch {
 			// Fall through to the plain selector rather than failing the call open.
 		}
 	}
 
 	return askViaSelector(ctx, toolName, target);
-}
-
-function outsideReason(path: string | undefined): string {
-	const where = path === undefined ? "" : ` (${shortenHome(path)})`;
-	return `${NAME}: outside the workspace${where}`;
 }
 
 function headlessRefusal(

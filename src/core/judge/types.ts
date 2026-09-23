@@ -1,5 +1,5 @@
 import type { JudgeBackendId } from "#core/judge/config.ts";
-import type { CallDescriptor } from "#core/target.ts";
+import type { CallDescriptor } from "#core/tools.ts";
 
 export interface JudgeInput {
 	toolName: string;

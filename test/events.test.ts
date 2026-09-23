@@ -6,6 +6,7 @@ import { defaultConfig } from "#core/config/schema.ts";
 import type { OutsideScope } from "#core/config/schema.ts";
 import { grantKey } from "#core/grants.ts";
 import type { PermissionMode } from "#core/mode.ts";
+import { createToolRegistry } from "#core/tools.ts";
 import { registerEvents } from "#pi/events.ts";
 import type { SessionState } from "#pi/session.ts";
 
@@ -50,6 +51,7 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 		judgeLog: [],
 		judgeWarned: new Set<string>(),
 		judgeHealth: { failures: 0, retryAt: 0 },
+		tools: createToolRegistry(),
 		typing: {
 			start: () => {},
 			stop: () => {},
@@ -139,6 +141,20 @@ describe("session modes", () => {
 
 		expect(result).toBeUndefined();
 		expect(opened).toBe(false);
+	});
+
+	test("auto still asks before powershell, whose paths it cannot read", async () => {
+		const { toolCall } = harness("auto");
+		let opened = false;
+
+		await toolCall(
+			{ toolName: "powershell", toolCallId: "call-1", input: { command: "Remove-Item C:\\x" } },
+			fakeContext(() => {
+				opened = true;
+			}),
+		);
+
+		expect(opened).toBe(true);
 	});
 
 	test("accept edits runs a write without opening the dialog", async () => {

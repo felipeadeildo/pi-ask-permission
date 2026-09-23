@@ -3,9 +3,9 @@ import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, type KeybindingsManager, visibleWidth } from "@earendil-works/pi-tui";
 
-import type { PermissionDecision } from "#core/decision.ts";
+import type { DialogAnswer } from "#core/answer.ts";
 import type { GrantScope } from "#core/grants.ts";
-import { deriveTarget } from "#core/target.ts";
+import { asToolInput, createToolRegistry } from "#core/tools.ts";
 import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
 import { AskDialog } from "#ui/dialog.ts";
 
@@ -24,12 +24,12 @@ const KEYS = { up: "\x1b[A", down: "\x1b[B", enter: "\r", tab: "\t", esc: "\x1b"
 const NO_PASTE = { matches: () => false } as unknown as KeybindingsManager;
 
 function open(toolName = "bash", input: unknown = { command: "git status --short" }) {
-	const decisions: PermissionDecision[] = [];
+	const decisions: DialogAnswer[] = [];
 	let renders = 0;
 	const dialog = new AskDialog({
 		theme,
 		toolName,
-		target: deriveTarget(toolName, input),
+		target: createToolRegistry().get(toolName).describe(asToolInput(input)),
 		keybindings: NO_PASTE,
 		requestRender: () => {
 			renders++;
@@ -47,8 +47,8 @@ function type(dialog: AskDialog, text: string): void {
 	for (const char of text) dialog.handleInput(char);
 }
 
-const YES: PermissionDecision = { decision: "allow", note: undefined, remember: undefined };
-const NO: PermissionDecision = { decision: "deny", note: undefined, remember: undefined };
+const YES: DialogAnswer = { decision: "allow", note: undefined, remember: undefined };
+const NO: DialogAnswer = { decision: "deny", note: undefined, remember: undefined };
 
 describe("menu", () => {
 	test("enter on the default row allows", () => {

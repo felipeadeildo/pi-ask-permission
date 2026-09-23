@@ -6,7 +6,7 @@ import { createJudgeBackend } from "#core/judge/backends/factory.ts";
 import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
 import { judgeToolCall } from "#core/judge/pipeline.ts";
 import type { JudgeInput, JudgeOutcome } from "#core/judge/types.ts";
-import type { CallDescriptor } from "#core/target.ts";
+import type { CallDescriptor } from "#core/tools.ts";
 
 export interface JudgeGateOptions {
 	config: PermissionConfig;
