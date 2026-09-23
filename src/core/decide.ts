@@ -36,7 +36,7 @@ export interface Layer {
 export interface GateState {
 	config: PermissionConfig;
 	mode: PermissionMode;
-	isGranted(toolName: string, levels: string[]): boolean;
+	hasAlwaysYes(toolName: string, levels: string[]): boolean;
 }
 
 const ALLOW: Verdict = { action: "allow" };
@@ -61,8 +61,7 @@ export function gateLayers(state: GateState): Layer[] {
 	return [
 		{
 			name: "always yes",
-			decide: (call) =>
-				state.isGranted(call.toolName, call.target.grantLevels) ? ALLOW : undefined,
+			decide: (call) => (state.hasAlwaysYes(call.toolName, call.target.levels) ? ALLOW : undefined),
 		},
 		{
 			name: "workspace",

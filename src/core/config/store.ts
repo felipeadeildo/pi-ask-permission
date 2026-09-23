@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 
+import { ALWAYS_YES_FILE } from "#core/always-yes.ts";
 import { decodeConfig } from "#core/config/decode.ts";
 import { defaultConfig, type PermissionConfig } from "#core/config/schema.ts";
 import { CONFIG_DIR } from "#identity";
@@ -18,12 +19,12 @@ export function configPath(): string {
 	return join(getAgentDir(), "extensions", CONFIG_DIR, "config.json");
 }
 
-export function grantsPath(): string {
-	return join(getAgentDir(), "extensions", CONFIG_DIR, "grants.json");
+export function globalAlwaysYesPath(): string {
+	return join(getAgentDir(), "extensions", CONFIG_DIR, ALWAYS_YES_FILE);
 }
 
-export function projectGrantsPath(cwd: string, configDirName: string): string {
-	return join(cwd, configDirName, "extensions", CONFIG_DIR, "grants.json");
+export function projectAlwaysYesPath(cwd: string): string {
+	return join(cwd, CONFIG_DIR_NAME, "extensions", CONFIG_DIR, ALWAYS_YES_FILE);
 }
 
 export function loadConfig(): LoadedConfig {

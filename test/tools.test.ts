@@ -84,27 +84,27 @@ describe("describe", () => {
 	test("bash uses the command", () => {
 		expect(describeCall("bash", { command: "sudo rm -rf /tmp/x" })).toEqual({
 			summary: "sudo rm -rf /tmp/x",
-			grantLevels: ["sudo", "sudo rm", "sudo rm -rf /tmp/x"],
+			levels: ["sudo", "sudo rm", "sudo rm -rf /tmp/x"],
 		});
 	});
 
 	test("file tools use the path", () => {
-		expect(describeCall("write", { path: "src/a.ts" }).grantLevels).toEqual(["src", "src/a.ts"]);
+		expect(describeCall("write", { path: "src/a.ts" }).levels).toEqual(["src", "src/a.ts"]);
 	});
 
 	test("mcp nests server then tool", () => {
 		expect(describeCall("mcp", { server: "github", tool: "search_code" })).toEqual({
 			summary: "github:search_code",
-			grantLevels: ["github", "github:search_code"],
+			levels: ["github", "github:search_code"],
 		});
 	});
 
 	test("an unknown tool has one level: its name", () => {
-		expect(describeCall("todo", { items: [1] }).grantLevels).toEqual(["todo"]);
+		expect(describeCall("todo", { items: [1] }).levels).toEqual(["todo"]);
 	});
 
 	test("a missing input does not throw", () => {
-		expect(describeCall("bash", undefined).grantLevels).toEqual(["(empty command)"]);
+		expect(describeCall("bash", undefined).levels).toEqual(["(empty command)"]);
 	});
 });
 
@@ -137,7 +137,7 @@ describe("tool adapters", () => {
 	test("a registered adapter replaces the built-in until it is removed", () => {
 		const tools = createToolRegistry();
 		const remove = tools.register("todo", {
-			describe: () => ({ summary: "todo", grantLevels: ["todo"] }),
+			describe: () => ({ summary: "todo", levels: ["todo"] }),
 			paths: () => undefined,
 			edits: true,
 		});

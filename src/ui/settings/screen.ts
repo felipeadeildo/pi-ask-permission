@@ -1,6 +1,7 @@
 import { type ExtensionContext, getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import { Container, type SettingItem, SettingsList, Text } from "@earendil-works/pi-tui";
 
+import type { AlwaysYes } from "#core/always-yes.ts";
 import {
 	isFollowupDelivery,
 	isHeadlessMode,
@@ -8,7 +9,6 @@ import {
 	type OutsideScope,
 	type PermissionConfig,
 } from "#core/config/schema.ts";
-import { type GrantScope, GRANT_SCOPES } from "#core/grants.ts";
 import { POLICY_TEMPLATE, policyWarning } from "#core/judge/policy.ts";
 import { MODE_LABEL, modeFromLabel, PERMISSION_MODES, type PermissionMode } from "#core/mode.ts";
 import { NAME } from "#identity";
@@ -17,7 +17,7 @@ import { notifyJudgePolicyWarning } from "#ui/settings/status.ts";
 
 export interface SettingsState {
 	config: PermissionConfig;
-	grants: Record<GrantScope, Set<string>>;
+	alwaysYes: AlwaysYes;
 	/** Effective mode for this session, read live so the dialog stays truthful. */
 	mode: () => PermissionMode;
 	setMode: (mode: PermissionMode) => void;
@@ -164,7 +164,7 @@ async function showSettings(ctx: ExtensionContext, state: SettingsState): Promis
 		container.addChild(
 			new Text(
 				theme.fg("accent", theme.bold(NAME)) +
-					theme.fg("dim", `  \u00b7  ${grantCount(totalGrants(state.grants))} held`),
+					theme.fg("dim", `  \u00b7  ${alwaysYesCount(state.alwaysYes.total())}`),
 				1,
 				1,
 			),
@@ -270,10 +270,6 @@ function piModelIds(ctx: ExtensionContext): string[] {
 		.toSorted((left, right) => left.localeCompare(right));
 }
 
-export function totalGrants(grants: Record<GrantScope, Set<string>>): number {
-	return GRANT_SCOPES.reduce((total, scope) => total + grants[scope].size, 0);
-}
-
-export function grantCount(count: number): string {
-	return `${count} grant${count === 1 ? "" : "s"}`;
+export function alwaysYesCount(count: number): string {
+	return `${count} always yes`;
 }

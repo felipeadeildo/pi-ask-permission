@@ -65,6 +65,6 @@ function cacheKey(config: PermissionConfig, input: JudgeInput): string {
 		config.judge.model,
 		input.toolName,
 		input.target.summary,
-		input.target.grantLevels.join("\u0001"),
+		input.target.levels.join("\u0001"),
 	].join("\u0000");
 }

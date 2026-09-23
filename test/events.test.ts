@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { AlwaysYes } from "#core/always-yes.ts";
 import { defaultConfig } from "#core/config/schema.ts";
 import type { OutsideScope } from "#core/config/schema.ts";
-import { grantKey } from "#core/grants.ts";
 import type { PermissionMode } from "#core/mode.ts";
 import { createToolRegistry } from "#core/tools.ts";
 import { registerEvents } from "#pi/events.ts";
@@ -45,7 +45,7 @@ function harness(mode: PermissionMode = "manual", outside: OutsideScope = "ask")
 		mode,
 		configFile: "/dev/null",
 		configWarnings: [],
-		grants: { session: new Set<string>(), project: new Set<string>(), global: new Set<string>() },
+		alwaysYes: new AlwaysYes(),
 		pendingNotes: new Map<string, string>(),
 		judgeCache: new Map(),
 		judgeLog: [],
@@ -260,10 +260,10 @@ describe("workspace scope", () => {
 		expect(opened).toBe(true);
 	});
 
-	test("a grant still wins over the boundary", async () => {
+	test("always yes still wins over the boundary", async () => {
 		const { state, toolCall } = harness("manual");
 		let opened = false;
-		state.grants.session.add(grantKey("bash", "cat /etc/passwd"));
+		state.alwaysYes.add("session", "bash", "cat /etc/passwd");
 
 		const result = await toolCall(
 			judgeCall("call-1", "cat /etc/passwd"),

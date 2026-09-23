@@ -3,8 +3,8 @@ import { describe, expect, test } from "bun:test";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, type KeybindingsManager, visibleWidth } from "@earendil-works/pi-tui";
 
+import type { Scope } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
-import type { GrantScope } from "#core/grants.ts";
 import { asToolInput, createToolRegistry } from "#core/tools.ts";
 import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
 import { AskDialog } from "#ui/dialog.ts";
@@ -138,9 +138,9 @@ describe("always yes depth picker", () => {
 	});
 });
 
-describe("grant scope", () => {
+describe("always yes scope", () => {
 	test("tab cycles session, project, everywhere", () => {
-		const steps: [string[], GrantScope][] = [
+		const steps: [string[], Scope][] = [
 			[[], "session"],
 			[[KEYS.tab], "project"],
 			[[KEYS.tab, KEYS.tab], "global"],

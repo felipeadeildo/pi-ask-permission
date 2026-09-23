@@ -45,7 +45,7 @@ Digits only move the highlight, so any row can take a note or a plain confirm. T
 
 ## Always yes
 
-`always yes` opens a second step: which grant to remember, then how long it lasts.
+`always yes` opens a second step: what to remember, then for how long.
 
 ```
 permission · bash
@@ -58,15 +58,15 @@ always yes for...
 scope: this session   (tab to change)
 ```
 
-The narrowest level is preselected, so `enter` grants exactly what was on screen. File tools nest by directory, so a write can be approved for one file or the folder around it.
+The narrowest level is preselected, so `enter` remembers exactly what was on screen. File tools nest by directory, so a write can be approved for one file or the folder around it.
 
-| Scope        | Stored in                                                | Survives                 |
-| ------------ | -------------------------------------------------------- | ------------------------ |
-| this session | memory                                                   | nothing                  |
-| this project | `<project>/.pi/extensions/pi-ask-permission/grants.json` | reloads and new sessions |
-| everywhere   | `~/.pi/agent/extensions/pi-ask-permission/grants.json`   | everything               |
+| Scope        | Stored in                                                    | Survives                 |
+| ------------ | ------------------------------------------------------------ | ------------------------ |
+| this session | memory                                                       | nothing                  |
+| this project | `<project>/.pi/extensions/pi-ask-permission/always-yes.json` | reloads and new sessions |
+| everywhere   | `~/.pi/agent/extensions/pi-ask-permission/always-yes.json`   | everything               |
 
-The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level, so a `bash` grant never widens `write`. Project grants load only in a trusted project.
+The files are plain JSON, `{ "bash": ["pnpm test"] }`, matched by tool and level, so always yes for `bash` never covers `write`. The project file loads only in a trusted project. Saving adds to what is on disk, so two pi sessions open at once keep each other's entries. A `grants.json` from before 3.0 is renamed on first load.
 
 ## Session modes
 
@@ -86,7 +86,7 @@ The mode is session state. `Alt+M` and `/perm mode` never write to `config.json`
 
 `workspace.roots` lists the paths the check treats as inside. It defaults to `["."]`, the project root, and takes absolute paths, relative ones, and `~`. Resolution is lexical, plus a `realpath` when the target exists, so a symlink out of the project does not count as inside.
 
-`workspace.outside` decides what happens when a call leaves those roots. `"ask"` sends it to you, without the judge. `"deny"` blocks it. `"allow"` turns the boundary off, and with `auto` that is the old yolo. A grant still wins, and an image pasted into the temp dir counts as inside.
+`workspace.outside` decides what happens when a call leaves those roots. `"ask"` sends it to you, without the judge. `"deny"` blocks it. `"allow"` turns the boundary off, so `auto` runs everything anywhere. Always yes still wins, and an image pasted into the temp dir counts as inside.
 
 ## Read-only bash
 
@@ -166,7 +166,7 @@ The policy is authoritative and the tool call is treated as untrusted data, so a
 | Policy               | Presets, or a full editor                                                                          |
 | Dry run              | Show the verdict, still ask                                                                        |
 | Judge with no UI     | Also judge in print, JSON, and subagent runs                                                       |
-| Remember approvals   | Treat a judge approval as a session grant                                                          |
+| Remember approvals   | A judge approval becomes always yes for this session                                               |
 
 ## Configuration
 
@@ -215,19 +215,19 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 | `/perm`               | settings dialog for the mode, workspace, read-only bash, followup wire, judge, and headless |
 | `/perm mode`          | cycle the session mode (also `Alt+M`)                                                       |
 | `/perm mode auto`     | set the session mode (also `manual` and `accept-edits`)                                     |
-| `/perm status`        | resolved config, grant counts per scope, and file paths                                     |
+| `/perm status`        | resolved config, always yes per scope, and file paths                                       |
 | `/perm judge`         | open the AI-approval settings                                                               |
 | `/perm judge on`      | turn AI approvals on (also `off`)                                                           |
 | `/perm judge log`     | the most recent judge decisions this session                                                |
 | `/perm judge test`    | make one real judge request and report the model, latency, and any error                    |
-| `/perm reset`         | forget this session's grants                                                                |
-| `/perm reset project` | delete the project grants file                                                              |
-| `/perm reset global`  | delete the global grants file                                                               |
+| `/perm reset`         | forget this session's always yes                                                            |
+| `/perm reset project` | delete this project's always yes file                                                       |
+| `/perm reset global`  | delete the global always yes file                                                           |
 | `/perm reset all`     | clear all three scopes                                                                      |
 
 ## How a call is decided
 
-1. A grant matches this tool and level, allow.
+1. Always yes matches this tool and level, allow.
 2. The mode approves it: `auto` approves everything in the workspace, `accept-edits` approves `edit` and `write` in it.
 3. The tool is in `allow`, allow.
 4. `readOnlyBash` is on and the bash command only reads, allow.
@@ -240,9 +240,9 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 
 ## Limits
 
-Grants are exact. There are no wildcard grants, no path canonicalization, and no symlink resolution. A command arrives as the agent wrote it and is judged by the person reading it.
+Always yes is exact. It has no wildcards, no path canonicalization, and no symlink resolution. A command arrives as the agent wrote it and is judged by the person reading it.
 
-A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`, and the whole chain, because the depth picker reads text instead of parsing the shell. Grants on chains are coarse at the head and exact at the tail.
+A chained command is one string. `cd /repo && pnpm test` offers `cd`, `cd /repo`, and the whole chain, because the depth picker reads text instead of parsing the shell. Always yes on a chain is coarse at the head and exact at the tail.
 
 `allow` matches a tool name, not an argument, so allowing `bash` permits every bash command.
 

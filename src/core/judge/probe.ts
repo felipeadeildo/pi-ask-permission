@@ -43,7 +43,7 @@ function probeInput(config: JudgeConfig): JudgeInput {
 	const command = "echo 'pi-ask-permission judge probe'";
 	return {
 		toolName: "bash",
-		target: { summary: command, grantLevels: ["echo", command] },
+		target: { summary: command, levels: ["echo", command] },
 		rawInput: { command },
 		cwd: process.cwd(),
 		policy: config.policy || "Connectivity probe from pi-ask-permission.",

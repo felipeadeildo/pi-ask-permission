@@ -1,7 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { type Scope, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
-import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
 import type { CallDescriptor } from "#core/tools.ts";
 import { FALLBACK_CHOICES } from "#ui/decision-options.ts";
 
@@ -16,20 +16,20 @@ export async function askViaSelector(
 	if (!option) return { decision: "deny" };
 
 	let remember: string | undefined;
-	let scope: GrantScope | undefined;
+	let scope: Scope | undefined;
 	if (option.always) {
-		if (target.grantLevels.length === 1) {
-			remember = target.grantLevels[0];
+		if (target.levels.length === 1) {
+			remember = target.levels[0];
 		} else {
-			const level = await ctx.ui.select("Always yes for...", target.grantLevels);
+			const level = await ctx.ui.select("Always yes for...", target.levels);
 			if (!level) return { decision: "deny" };
 			remember = level;
 		}
 
-		const scopeLabels = GRANT_SCOPES.map((candidate) => SCOPE_LABEL[candidate]);
+		const scopeLabels = SCOPES.map((candidate) => SCOPE_LABEL[candidate]);
 		const picked = await ctx.ui.select("Remember for...", scopeLabels);
 		if (!picked) return { decision: "deny" };
-		scope = GRANT_SCOPES[scopeLabels.indexOf(picked)];
+		scope = SCOPES[scopeLabels.indexOf(picked)];
 	}
 
 	let note: string | undefined;

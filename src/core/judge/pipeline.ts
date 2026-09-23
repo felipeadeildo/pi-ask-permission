@@ -25,7 +25,7 @@ export interface JudgeCallOptions {
 export async function judgeToolCall(options: JudgeCallOptions): Promise<JudgeOutcome> {
 	const { config, backend, input } = options;
 
-	const values = [input.target.summary, ...input.target.grantLevels];
+	const values = [input.target.summary, ...input.target.levels];
 	if (neverMatches(config, values)) {
 		const reason = "matches a never-auto-approve rule";
 		return { action: "ask", reason, record: blankRecord(config, input, reason) };

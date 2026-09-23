@@ -1,16 +1,13 @@
-import { CONFIG_DIR_NAME, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { AlwaysYes, savedFileExists, type Scope } from "#core/always-yes.ts";
 import type { PermissionConfig } from "#core/config/schema.ts";
-import { grantsPath, loadConfig, projectGrantsPath, saveConfig } from "#core/config/store.ts";
 import {
-	deleteGrants,
-	GRANT_SCOPES,
-	type GrantScope,
-	grantKey,
-	grantsFileExists,
-	loadGrants,
-	saveGrants,
-} from "#core/grants.ts";
+	globalAlwaysYesPath,
+	loadConfig,
+	projectAlwaysYesPath,
+	saveConfig,
+} from "#core/config/store.ts";
 import type { JudgeOutcome, JudgeRecord } from "#core/judge/types.ts";
 import type { PermissionMode } from "#core/mode.ts";
 import { createToolRegistry, type ToolRegistry } from "#core/tools.ts";
@@ -32,7 +29,7 @@ export interface SessionState {
 	mode: PermissionMode;
 	configFile: string;
 	configWarnings: string[];
-	grants: Record<GrantScope, Set<string>>;
+	alwaysYes: AlwaysYes;
 	pendingNotes: Map<string, string>;
 	judgeCache: Map<string, JudgeOutcome>;
 	judgeLog: JudgeRecord[];
@@ -50,7 +47,7 @@ export function createSession(): SessionState {
 		mode: loaded.config.mode,
 		configFile: loaded.path,
 		configWarnings: loaded.warnings,
-		grants: { session: new Set(), project: new Set(), global: new Set() },
+		alwaysYes: new AlwaysYes(),
 		pendingNotes: new Map(),
 		judgeCache: new Map(),
 		judgeLog: [],
@@ -78,73 +75,43 @@ export function noteJudgeFailure(state: SessionState, ctx: ExtensionContext): vo
 	);
 }
 
-type PersistedScope = Exclude<GrantScope, "session">;
-
-function grantPath(scope: PersistedScope, cwd: string): string {
-	return scope === "global" ? grantsPath() : projectGrantsPath(cwd, CONFIG_DIR_NAME);
-}
-
 export function saveConfigFile(state: SessionState, ctx: ExtensionContext): void {
 	const error = saveConfig(state.config);
 	if (error) ctx.ui.notify(`${NAME}: could not save config: ${error}`, "error");
 }
 
-export function isGranted(state: SessionState, toolName: string, grantLevels: string[]): boolean {
-	return grantLevels.some((level) => {
-		const key = grantKey(toolName, level);
-		return (
-			state.grants.session.has(key) || state.grants.project.has(key) || state.grants.global.has(key)
-		);
+export function openAlwaysYes(state: SessionState, ctx: ExtensionContext): void {
+	const project = projectAlwaysYesPath(ctx.cwd);
+	const trusted = ctx.isProjectTrusted();
+	const warnings = state.alwaysYes.open({
+		global: globalAlwaysYesPath(),
+		project: trusted ? project : undefined,
 	});
+
+	for (const warning of warnings) ctx.ui.notify(`${NAME}: ${warning}`, "warning");
+	if (!trusted && savedFileExists(project)) {
+		ctx.ui.notify(`${NAME}: ${project} skipped, this project is not trusted`, "warning");
+	}
 }
 
-export function persistGrants(
+export function rememberAlwaysYes(
 	state: SessionState,
 	ctx: ExtensionContext,
-	scope: PersistedScope,
+	scope: Scope,
+	toolName: string,
+	level: string,
 ): void {
-	const error = saveGrants(grantPath(scope, ctx.cwd), state.grants[scope]);
-	if (error) ctx.ui.notify(`${NAME}: could not save grants: ${error}`, "error");
+	const problem = state.alwaysYes.add(scope, toolName, level);
+	if (problem) ctx.ui.notify(`${NAME}: could not save always yes: ${problem}`, "warning");
 }
 
-export function forgetGrants(
+export function forgetAlwaysYes(
 	state: SessionState,
 	ctx: ExtensionContext,
-	scope: GrantScope | "all",
+	scope: Scope | "all",
 ): number {
-	const targets = scope === "all" ? GRANT_SCOPES : [scope];
-	let removed = 0;
-
-	for (const target of targets) {
-		removed += state.grants[target].size;
-		state.grants[target].clear();
-		if (target === "session") continue;
-
-		const error = deleteGrants(grantPath(target, ctx.cwd));
-		if (error) ctx.ui.notify(`${NAME}: could not delete grants: ${error}`, "error");
-	}
-
+	const { removed, errors } = state.alwaysYes.forget(scope);
+	for (const error of errors)
+		ctx.ui.notify(`${NAME}: could not delete always yes: ${error}`, "error");
 	return removed;
-}
-
-export function loadGrantScopes(state: SessionState, ctx: ExtensionContext): void {
-	state.grants.session.clear();
-	state.grants.global = loadScope(ctx, grantsPath());
-
-	const projectFile = projectGrantsPath(ctx.cwd, CONFIG_DIR_NAME);
-	if (ctx.isProjectTrusted()) {
-		state.grants.project = loadScope(ctx, projectFile);
-		return;
-	}
-
-	state.grants.project = new Set();
-	if (grantsFileExists(projectFile)) {
-		ctx.ui.notify(`${NAME}: ${projectFile} skipped, this project is not trusted`, "warning");
-	}
-}
-
-function loadScope(ctx: ExtensionContext, path: string): Set<string> {
-	const loaded = loadGrants(path);
-	if (loaded.warning) ctx.ui.notify(`${NAME}: ${loaded.warning}`, "warning");
-	return loaded.grants;
 }

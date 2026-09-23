@@ -11,7 +11,7 @@ export const MODE_LABEL: Record<PermissionMode, string> = {
 };
 
 export const MODE_DESCRIPTION: Record<PermissionMode, string> = {
-	manual: "ask before anything the allow list, grants, and read-only bash do not cover",
+	manual: "ask before anything the allow list, always yes, and read-only bash do not cover",
 	"accept-edits": "run file edits and writes in the workspace without asking",
 	auto: "run every call in the workspace without asking; outside follows workspace.outside",
 };

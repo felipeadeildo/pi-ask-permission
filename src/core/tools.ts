@@ -5,7 +5,7 @@ import { commandWords, isReadOnlyCommand } from "#core/readonly-bash.ts";
 
 export interface CallDescriptor {
 	summary: string;
-	grantLevels: string[];
+	levels: string[];
 }
 
 export type ToolInput = Record<string, unknown>;
@@ -40,7 +40,7 @@ const powershell: ToolAdapter = {
 const fileReader: ToolAdapter = {
 	describe: (input) => {
 		const path = text(input.path) ?? "";
-		return { summary: path.trim() || "(no path)", grantLevels: pathLevels(path) };
+		return { summary: path.trim() || "(no path)", levels: pathLevels(path) };
 	},
 	paths: (input) => [text(input.path)?.trim() || "."],
 };
@@ -80,7 +80,7 @@ export function createToolRegistry(): ToolRegistry {
 
 function fallback(toolName: string): ToolAdapter {
 	return {
-		describe: (input) => ({ summary: summarizeInput(input), grantLevels: [toolName] }),
+		describe: (input) => ({ summary: summarizeInput(input), levels: [toolName] }),
 		paths: () => [],
 	};
 }
@@ -91,7 +91,7 @@ export function asToolInput(input: unknown): ToolInput {
 
 function commandTarget(input: ToolInput): CallDescriptor {
 	const command = text(input.command) ?? "";
-	return { summary: command.trim() || "(empty command)", grantLevels: commandLevels(command) };
+	return { summary: command.trim() || "(empty command)", levels: commandLevels(command) };
 }
 
 export function commandLevels(command: string): string[] {
@@ -205,11 +205,11 @@ function mcpTarget(input: ToolInput): CallDescriptor {
 	const tool = text(input.tool);
 
 	if (server && tool) {
-		return { summary: `${server}:${tool}`, grantLevels: [server, `${server}:${tool}`] };
+		return { summary: `${server}:${tool}`, levels: [server, `${server}:${tool}`] };
 	}
-	if (tool) return { summary: tool, grantLevels: [tool] };
-	if (server) return { summary: server, grantLevels: [server] };
-	return { summary: summarizeInput(input), grantLevels: ["mcp"] };
+	if (tool) return { summary: tool, levels: [tool] };
+	if (server) return { summary: server, levels: [server] };
+	return { summary: summarizeInput(input), levels: ["mcp"] };
 }
 
 function text(value: unknown): string | undefined {

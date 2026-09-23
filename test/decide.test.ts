@@ -8,7 +8,7 @@ import { createToolRegistry } from "#core/tools.ts";
 const CWD = "/repo";
 
 function gate(overrides: Partial<GateState> = {}): GateState {
-	return { config: defaultConfig(), mode: "manual", isGranted: () => false, ...overrides };
+	return { config: defaultConfig(), mode: "manual", hasAlwaysYes: () => false, ...overrides };
 }
 
 async function decidedBy(
@@ -29,7 +29,7 @@ function withOutside(outside: PermissionConfig["workspace"]["outside"]): Permiss
 
 describe("decide", () => {
 	test("always yes wins before anything else", async () => {
-		const state = gate({ isGranted: () => true });
+		const state = gate({ hasAlwaysYes: () => true });
 		expect(await decidedBy("bash", { command: "cat /etc/passwd" }, state)).toBe("always yes");
 	});
 

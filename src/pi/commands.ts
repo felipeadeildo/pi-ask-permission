@@ -1,15 +1,20 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 
-import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
+import { type Scope, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
 import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
 import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText } from "#core/judge/report.ts";
 import { MODE_LABEL, nextMode, parseMode } from "#core/mode.ts";
 import { NAME } from "#identity";
 import { setSessionMode } from "#pi/mode.ts";
-import { forgetGrants, resetJudgeHealth, saveConfigFile, type SessionState } from "#pi/session.ts";
-import { grantCount, openSettings } from "#ui/settings/screen.ts";
+import {
+	forgetAlwaysYes,
+	resetJudgeHealth,
+	saveConfigFile,
+	type SessionState,
+} from "#pi/session.ts";
+import { alwaysYesCount, openSettings } from "#ui/settings/screen.ts";
 import { notifyJudgePolicyWarning, statusText } from "#ui/settings/status.ts";
 
 const JUDGE_STATUS = `${NAME}:judge`;
@@ -18,7 +23,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 	const openSettingsFor = (ctx: ExtensionContext): Promise<void> =>
 		openSettings(ctx, {
 			config: state.config,
-			grants: state.grants,
+			alwaysYes: state.alwaysYes,
 			mode: () => state.mode,
 			setMode: (mode) => setSessionMode(state, mode, ctx, { announce: false }),
 			save: () => saveConfigFile(state, ctx),
@@ -27,7 +32,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 
 	function notifyStatus(ctx: ExtensionContext): void {
 		ctx.ui.notify(
-			statusText(state.config, state.grants, state.configFile, ctx.cwd, state.mode),
+			statusText(state.config, state.alwaysYes, state.configFile, ctx.cwd, state.mode),
 			"info",
 		);
 	}
@@ -140,7 +145,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 				}
 
 				const where = target === "all" ? "every scope" : SCOPE_LABEL[target];
-				const removed = grantCount(forgetGrants(state, ctx, target));
+				const removed = alwaysYesCount(forgetAlwaysYes(state, ctx, target));
 				ctx.ui.notify(`${NAME}: forgot ${removed} from ${where}`, "info");
 				return;
 			}
@@ -160,10 +165,6 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 	});
 }
 
-function isGrantScope(value: string): value is GrantScope {
-	return GRANT_SCOPES.some((scope) => scope === value);
-}
-
-function isResetTarget(value: string): value is GrantScope | "all" {
-	return value === "all" || isGrantScope(value);
+function isResetTarget(value: string): value is Scope | "all" {
+	return value === "all" || SCOPES.some((scope) => scope === value);
 }

@@ -135,7 +135,7 @@ export function buildJudgeSettings(hooks: JudgeSettingsHooks): JudgeSettings {
 				label: "Remember approvals",
 				currentValue: values["judge.grant"],
 				values: ["off", "on"],
-				description: "Treat a judge approval as a grant for the rest of the session.",
+				description: "A judge approval becomes always yes for this session.",
 			},
 		],
 		onChange: (id, value) => {

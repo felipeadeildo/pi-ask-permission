@@ -1,8 +1,8 @@
-import { CONFIG_DIR_NAME, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
+import { type AlwaysYes, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
 import type { PermissionConfig } from "#core/config/schema.ts";
-import { grantsPath, projectGrantsPath } from "#core/config/store.ts";
-import { type GrantScope, GRANT_SCOPES } from "#core/grants.ts";
+import { globalAlwaysYesPath, projectAlwaysYesPath } from "#core/config/store.ts";
 import { policyWarning } from "#core/judge/policy.ts";
 import { MODE_LABEL, type PermissionMode } from "#core/mode.ts";
 import { NAME } from "#identity";
@@ -16,7 +16,7 @@ export function notifyJudgePolicyWarning(config: PermissionConfig, ctx: Extensio
 
 export function statusText(
 	config: PermissionConfig,
-	grants: Record<GrantScope, Set<string>>,
+	alwaysYes: AlwaysYes,
 	configFile: string,
 	cwd: string,
 	mode: PermissionMode,
@@ -33,9 +33,9 @@ export function statusText(
 		`readOnlyBash: ${config.readOnlyBash ? "on" : "off"}`,
 		`workspace: ${config.workspace.roots.join(", ")} \u00b7 outside: ${config.workspace.outside}`,
 		judgeLine(config),
-		`grants: ${GRANT_SCOPES.map((scope) => `${grants[scope].size} ${scope}`).join(" \u00b7 ")}`,
-		`project file: ${projectGrantsPath(cwd, CONFIG_DIR_NAME)}`,
-		`global file: ${grantsPath()}`,
+		`always yes: ${SCOPES.map((scope) => `${alwaysYes.size(scope)} ${SCOPE_LABEL[scope]}`).join(" \u00b7 ")}`,
+		`always yes for this project: ${projectAlwaysYesPath(cwd)}`,
+		`always yes everywhere: ${globalAlwaysYesPath()}`,
 	].join("\n");
 }
 

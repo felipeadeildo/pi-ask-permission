@@ -39,7 +39,7 @@ function answers(overrides: Partial<JudgeAnswers> = {}): JudgeAnswers {
 function judgeInput(overrides: Partial<JudgeInput> = {}): JudgeInput {
 	return {
 		toolName: "bash",
-		target: { summary: "pnpm test", grantLevels: ["pnpm", "pnpm test"] },
+		target: { summary: "pnpm test", levels: ["pnpm", "pnpm test"] },
 		rawInput: { command: "pnpm test" },
 		cwd: "/repo",
 		policy: "allow tests",
@@ -306,7 +306,7 @@ describe("judgeToolCall", () => {
 		const outcome = await judgeToolCall({
 			config,
 			backend,
-			input: judgeInput({ target: { summary: "rm -rf /", grantLevels: ["rm", "rm -rf /"] } }),
+			input: judgeInput({ target: { summary: "rm -rf /", levels: ["rm", "rm -rf /"] } }),
 		});
 
 		expect(called).toBe(false);
@@ -586,7 +586,7 @@ describe("judge report", () => {
 });
 
 describe("judgeGate", () => {
-	const target = { summary: "pnpm test", grantLevels: ["pnpm", "pnpm test"] };
+	const target = { summary: "pnpm test", levels: ["pnpm", "pnpm test"] };
 
 	test("skips the judge while it is disabled", async () => {
 		const outcome = await judgeGate({

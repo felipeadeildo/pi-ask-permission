@@ -11,8 +11,8 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
+import { type Scope, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
 import type { DialogAnswer } from "#core/answer.ts";
-import { GRANT_SCOPES, type GrantScope, SCOPE_LABEL } from "#core/grants.ts";
 import type { CallDescriptor } from "#core/tools.ts";
 import { readClipboard } from "#ui/clipboard.ts";
 import { CHOICES, type Choice } from "#ui/decision-options.ts";
@@ -145,9 +145,8 @@ export class AskDialog implements Component, Focusable {
 		if (this.phase === "levels") {
 			if (matchesKey(data, Key.up)) this.levelIndex = Math.max(0, this.levelIndex - 1);
 			else if (matchesKey(data, Key.down))
-				this.levelIndex = Math.min(this.target.grantLevels.length - 1, this.levelIndex + 1);
-			else if (matchesKey(data, Key.tab))
-				this.scopeIndex = (this.scopeIndex + 1) % GRANT_SCOPES.length;
+				this.levelIndex = Math.min(this.target.levels.length - 1, this.levelIndex + 1);
+			else if (matchesKey(data, Key.tab)) this.scopeIndex = (this.scopeIndex + 1) % SCOPES.length;
 			else if (matchesKey(data, Key.enter)) this.confirmLevel();
 			else if (matchesKey(data, Key.escape)) this.phase = "menu";
 			return;
@@ -198,7 +197,7 @@ export class AskDialog implements Component, Focusable {
 			this.pending = option;
 			this.pendingNote = this.draftNote();
 			this.noteIndex = null;
-			this.levelIndex = this.target.grantLevels.length - 1;
+			this.levelIndex = this.target.levels.length - 1;
 			this.scopeIndex = 0;
 			this.phase = "levels";
 			return;
@@ -207,12 +206,12 @@ export class AskDialog implements Component, Focusable {
 		this.complete({
 			decision: option.decision,
 			note: this.draftNote(),
-			remember: option.always ? this.target.grantLevels[0] : undefined,
+			remember: option.always ? this.target.levels[0] : undefined,
 		});
 	}
 
 	private confirmLevel(): void {
-		const level = this.target.grantLevels[this.levelIndex];
+		const level = this.target.levels[this.levelIndex];
 		if (!this.pending || level === undefined) return;
 
 		this.complete({
@@ -223,8 +222,8 @@ export class AskDialog implements Component, Focusable {
 		});
 	}
 
-	private get currentScope(): GrantScope {
-		return GRANT_SCOPES[this.scopeIndex] ?? "session";
+	private get currentScope(): Scope {
+		return SCOPES[this.scopeIndex] ?? "session";
 	}
 
 	private draftNote(): string | undefined {
@@ -297,7 +296,7 @@ export class AskDialog implements Component, Focusable {
 	private levelLines(): string[] {
 		const lines = [this.theme.fg("muted", "always yes for...")];
 
-		for (const [index, level] of this.target.grantLevels.entries()) {
+		for (const [index, level] of this.target.levels.entries()) {
 			const active = index === this.levelIndex;
 			const marker = active ? this.theme.fg("accent", "\u276f ") : "  ";
 			lines.push(marker + this.theme.fg(active ? "accent" : "text", level));
