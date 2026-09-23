@@ -1,11 +1,11 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Key } from "@earendil-works/pi-tui";
+import { type AutocompleteItem, Key } from "@earendil-works/pi-tui";
 
-import { type Scope, SCOPE_LABEL, SCOPES } from "#core/always-yes.ts";
+import { type Scope, SCOPE_LABEL } from "#core/always-yes.ts";
 import { TYPESAFE_PROVIDER } from "#core/judge/backends/jev.ts";
 import { probeJudge } from "#core/judge/probe.ts";
 import { judgeLogText } from "#core/judge/report.ts";
-import { MODE_LABEL, nextMode, parseMode } from "#core/mode.ts";
+import { MODE_DESCRIPTION, nextMode, parseMode, PERMISSION_MODES } from "#core/mode.ts";
 import { NAME } from "#identity";
 import { setSessionMode } from "#pi/mode.ts";
 import {
@@ -99,12 +99,7 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 			return;
 		}
 
-		if (argument === "status" || ctx.mode !== "tui") {
-			notifyStatus(ctx);
-			return;
-		}
-
-		await openSettingsFor(ctx);
+		await settingsOrStatus(ctx);
 	}
 
 	function modeCommand(ctx: ExtensionContext, argument: string | undefined): void {
@@ -115,47 +110,59 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 
 		const mode = parseMode(argument);
 		if (!mode) {
-			ctx.ui.notify(`${NAME}: mode takes ${Object.values(MODE_LABEL).join(", ")}`, "warning");
+			ctx.ui.notify(`${NAME}: mode takes ${PERMISSION_MODES.join(", ")}`, "warning");
 			return;
 		}
 
 		setSessionMode(pi, state, mode, ctx);
 	}
 
+	function forgetCommand(ctx: ExtensionContext, argument = "session"): void {
+		const scope = FORGET_SCOPES[argument];
+		if (!scope) {
+			ctx.ui.notify(`${NAME}: forget takes ${Object.keys(FORGET_SCOPES).join(", ")}`, "warning");
+			return;
+		}
+
+		const where = scope === "all" ? "every scope" : SCOPE_LABEL[scope];
+		const removed = alwaysYesCount(forgetAlwaysYes(pi, state, ctx, scope));
+		ctx.ui.notify(`${NAME}: forgot ${removed} from ${where}`, "info");
+	}
+
+	async function settingsOrStatus(ctx: ExtensionContext): Promise<void> {
+		if (ctx.mode === "tui") await openSettingsFor(ctx);
+		else notifyStatus(ctx);
+	}
+
 	pi.registerCommand("perm", {
-		description: `${NAME}: mode, settings, status, reset`,
+		description: `${NAME}: settings, mode, status, forget, judge`,
+		getArgumentCompletions: (prefix) => {
+			const typed = prefix.trimStart().toLowerCase();
+			const matches = SUBCOMMANDS.filter((command) => command.value.startsWith(typed));
+			return matches.length > 0 ? matches : null;
+		},
 		handler: async (args, ctx) => {
 			const [verb, argument] = args.trim().toLowerCase().split(/\s+/);
 
-			if (verb === "judge") {
-				await judgeCommand(ctx, argument);
-				return;
-			}
-
-			if (verb === "mode") {
-				modeCommand(ctx, argument);
-				return;
-			}
-
-			if (verb === "reset") {
-				const target = argument ?? "session";
-				if (!isResetTarget(target)) {
-					ctx.ui.notify(`${NAME}: reset takes session, project, global, or all`, "warning");
+			switch (verb) {
+				case "":
+					await settingsOrStatus(ctx);
 					return;
-				}
-
-				const where = target === "all" ? "every scope" : SCOPE_LABEL[target];
-				const removed = alwaysYesCount(forgetAlwaysYes(pi, state, ctx, target));
-				ctx.ui.notify(`${NAME}: forgot ${removed} from ${where}`, "info");
-				return;
+				case "mode":
+					modeCommand(ctx, argument);
+					return;
+				case "status":
+					notifyStatus(ctx);
+					return;
+				case "forget":
+					forgetCommand(ctx, argument);
+					return;
+				case "judge":
+					await judgeCommand(ctx, argument);
+					return;
+				default:
+					ctx.ui.notify(`${NAME}: /perm takes ${VERBS.join(", ")}`, "warning");
 			}
-
-			if (verb === "status" || ctx.mode !== "tui") {
-				notifyStatus(ctx);
-				return;
-			}
-
-			await openSettingsFor(ctx);
 		},
 	});
 
@@ -165,6 +172,29 @@ export function registerCommands(pi: ExtensionAPI, state: SessionState): void {
 	});
 }
 
-function isResetTarget(value: string): value is Scope | "all" {
-	return value === "all" || SCOPES.some((scope) => scope === value);
+const FORGET_SCOPES: Record<string, Scope | "all"> = {
+	session: "session",
+	project: "project",
+	everywhere: "global",
+	all: "all",
+};
+
+const SUBCOMMANDS: AutocompleteItem[] = [
+	suggestion("mode", "Switch to the next mode (also Alt+M)"),
+	...PERMISSION_MODES.map((mode) => suggestion(`mode ${mode}`, MODE_DESCRIPTION[mode])),
+	suggestion("status", "Show the config, always yes, and file paths"),
+	suggestion("forget", "Forget this session's always yes"),
+	suggestion("forget project", "Forget this project's always yes"),
+	suggestion("forget everywhere", "Forget the always yes that applies everywhere"),
+	suggestion("forget all", "Forget every always yes"),
+	suggestion("judge on", "Turn the judge on"),
+	suggestion("judge off", "Turn the judge off"),
+	suggestion("judge log", "Show this session's judge decisions"),
+	suggestion("judge test", "Send one real request and report the result"),
+];
+
+function suggestion(value: string, description: string): AutocompleteItem {
+	return { value, label: value, description };
 }
+
+const VERBS = ["mode", "status", "forget", "judge"];

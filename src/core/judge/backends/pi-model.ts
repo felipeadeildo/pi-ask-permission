@@ -25,7 +25,7 @@ export function createPiBackend(options: PiBackendOptions): JudgeBackend {
 			const model = findModel(options.modelRegistry, options.model);
 			if (!model) {
 				throw new JudgeError(
-					`model "${options.model}" is not available: pick one with /perm judge`,
+					`model "${options.model}" is not available: pick one with /perm`,
 					"no-model",
 				);
 			}

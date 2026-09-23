@@ -212,20 +212,19 @@ A missing or malformed file falls back to the defaults and reports what it dropp
 
 ## Commands
 
-| Command               | Does                                                                      |
-| --------------------- | ------------------------------------------------------------------------- |
-| `/perm`               | settings for the mode, workspace, notes, read-only bash, judge, and no UI |
-| `/perm mode`          | cycle the session mode (also `Alt+M`)                                     |
-| `/perm mode auto`     | set the session mode (also `manual` and `accept-edits`)                   |
-| `/perm status`        | resolved config, always yes per scope, and file paths                     |
-| `/perm judge`         | open the AI-approval settings                                             |
-| `/perm judge on`      | turn the judge on (also `off`)                                            |
-| `/perm judge log`     | the most recent judge decisions this session                              |
-| `/perm judge test`    | make one real judge request and report the model, latency, and any error  |
-| `/perm reset`         | forget this session's always yes                                          |
-| `/perm reset project` | delete this project's always yes file                                     |
-| `/perm reset global`  | delete the global always yes file                                         |
-| `/perm reset all`     | clear all three scopes                                                    |
+Type `/perm ` and the editor suggests the rest.
+
+| Command                | Does                                                           |
+| ---------------------- | -------------------------------------------------------------- |
+| `/perm`                | Open the settings                                              |
+| `/perm mode`           | Switch to the next mode (also `Alt+M`)                         |
+| `/perm mode auto`      | Switch to a mode (also `manual` and `accept-edits`)            |
+| `/perm status`         | Show the config, always yes, and file paths                    |
+| `/perm forget`         | Forget this session's always yes                               |
+| `/perm forget project` | Forget this project's always yes (also `everywhere`, `all`)    |
+| `/perm judge on`       | Turn the judge on (also `off`)                                 |
+| `/perm judge log`      | Show this session's judge decisions                            |
+| `/perm judge test`     | Send one real request and report the model, latency, and error |
 
 ## How a call is decided
 
